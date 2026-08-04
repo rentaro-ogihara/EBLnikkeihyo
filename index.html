@@ -1,0 +1,1711 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>日計表 ｜ EC BASE LOGI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1a1c20">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --ink:#1a1c20; --ink-2:#43474d; --ink-3:#6f757d;
+  --paper:#e8e6e0; --card:#ffffff; --line:#c4c1b8; --line-2:#e0ddd5;
+  --signal:#0f4c81; --signal-dk:#0a3a63;
+  --ok:#1a6b43; --alert:#bf3810; --warn:#95580a;
+  --z-normal:#5b6470; --z-jit:#b45309; --z-frozen:#1e5aa8; --z-chilled:#0e7490;
+  --k-cht:#6d28d9; --k-mga:#0369a1; --k-ovs:#b45309; --k-dom:#5b6470;
+  --r:5px;
+  --fs-jp:"BIZ UDPGothic","BIZ UDGothic","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif;
+  --fs-num:ui-monospace,"SFMono-Regular","Roboto Mono","BIZ UDGothic",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--fs-jp);
+  font-size:18px;line-height:1.6;-webkit-text-size-adjust:100%;padding-bottom:150px}
+button,input,select,textarea{font-family:inherit;font-size:18px;color:var(--ink)}
+:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+
+.topbar{position:sticky;top:0;z-index:40;background:var(--ink);color:#fff}
+.topbar-in{max-width:1320px;margin:0 auto;padding:11px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:11px}
+.brand b{font-size:24px;letter-spacing:.14em}
+.brand span{font-size:12px;letter-spacing:.22em;color:#a7aeb6}
+.tabs{display:flex;margin-left:auto;flex-wrap:wrap}
+.tab{background:transparent;border:0;border-bottom:4px solid transparent;color:#c2c9d1;padding:10px 20px;cursor:pointer;font-size:18px}
+.tab[aria-selected="true"]{color:#fff;border-bottom-color:#d9e021;font-weight:700}
+.tab:hover{color:#fff}
+
+.ctx{position:sticky;top:0;z-index:30;background:#fff;border-bottom:3px solid var(--ink)}
+.ctx-in{max-width:1320px;margin:0 auto;padding:11px 16px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:13px;letter-spacing:.1em;color:var(--ink-2);font-weight:700}
+.field input,.field select{border:2px solid var(--line);border-radius:var(--r);padding:10px 12px;background:#fff;min-height:52px;font-size:19px}
+.field input:focus,.field select:focus{border-color:var(--signal)}
+.ctx .field input,.ctx .field select{font-size:21px;font-weight:700}
+.sync-chip{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink-2)}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--ink-3);display:inline-block}
+.dot.on{background:var(--ok)} .dot.off{background:var(--alert)}
+
+main{max-width:1320px;margin:0 auto;padding:20px 16px 40px}
+.view{display:none} .view.active{display:block}
+
+.block{background:var(--card);border:2px solid var(--line);border-radius:var(--r);margin-bottom:22px;overflow:hidden}
+.block-hd{display:flex;align-items:center;gap:13px;padding:13px 16px;background:#f5f3ee;border-bottom:2px solid var(--line);flex-wrap:wrap}
+.block-no{font-family:var(--fs-num);font-size:15px;font-weight:700;background:var(--ink);color:#fff;padding:4px 10px;border-radius:3px;letter-spacing:.06em}
+.block-hd h2{margin:0;font-size:21px;letter-spacing:.03em}
+.block-hd .hint{margin-left:auto;font-size:14px;color:var(--ink-2)}
+.block-bd{padding:16px}
+
+.carriers{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.carrier{border:2px solid var(--line);border-radius:var(--r);overflow:hidden}
+.carrier-hd{background:var(--ink);color:#fff;padding:9px 13px;font-weight:700;letter-spacing:.05em;font-size:18px}
+.carrier-bd{padding:12px 13px 14px;display:flex;flex-direction:column;gap:10px}
+.zrow{display:grid;grid-template-columns:1fr 124px 34px;align-items:center;gap:9px}
+.zname{display:flex;align-items:center;gap:8px;font-size:18px}
+.zbar{width:6px;height:22px;border-radius:2px;background:var(--z-normal)}
+.zbar.jit{background:var(--z-jit)} .zbar.fz{background:var(--z-frozen)} .zbar.ch{background:var(--z-chilled)}
+.unit{font-size:15px;color:var(--ink-3)}
+input.num{font-family:var(--fs-num);font-variant-numeric:tabular-nums;text-align:right;
+  border:2px solid var(--line);border-radius:var(--r);padding:10px;min-height:52px;width:100%;font-size:20px;background:#fff}
+input.num:focus{border-color:var(--signal);background:#f4f8fd}
+input.num.big{font-size:22px;font-weight:700}
+input.num.need{border-color:var(--alert);background:#fdeee9}
+.zrow.total{border-top:2px dashed var(--line);padding-top:10px;margin-top:2px}
+.zrow.total .zname{font-weight:700}
+.mismatch{font-size:14px;color:var(--alert);font-weight:700;display:none;line-height:1.4}
+.mismatch.show{display:block}
+
+.rows{display:flex;flex-direction:column;gap:10px}
+.rowhead{display:grid;gap:9px;font-size:13px;letter-spacing:.08em;color:var(--ink-2);font-weight:700;padding:0 46px 0 6px}
+.datarow{display:grid;gap:9px;align-items:center;padding:10px 6px;border:2px solid var(--line-2);border-radius:var(--r);background:#fdfdfc}
+.datarow:focus-within{border-color:var(--signal);background:#f4f8fd}
+.datarow .lbl{display:none}
+.datarow select,.datarow input[type=text]{border:2px solid var(--line);border-radius:var(--r);padding:10px;min-height:52px;width:100%;background:#fff;font-size:18px}
+.del{border:2px solid var(--line);background:#fff;color:var(--ink-2);border-radius:var(--r);width:44px;height:52px;cursor:pointer;font-size:22px;line-height:1}
+.del:hover{background:#fde9e3;border-color:var(--alert);color:var(--alert)}
+.addrow{margin-top:13px;width:100%;min-height:60px;border:3px dashed var(--line);background:#fff;border-radius:var(--r);
+  color:var(--signal);font-weight:700;font-size:19px;cursor:pointer}
+.addrow:hover{background:#eef4fb;border-color:var(--signal)}
+.chkline{display:flex;align-items:center;gap:9px;font-size:17px}
+.chkline input[type=checkbox]{width:26px;height:26px;accent-color:var(--signal)}
+
+.g-ship{grid-template-columns:1.3fr 178px 92px 100px 106px 1.3fr 44px}
+.g-set{grid-template-columns:1.3fr 1.5fr 106px 106px 1.3fr 44px}
+.g-in{grid-template-columns:1.3fr 104px 100px 106px 1.5fr 1.2fr 44px}
+.g-ret{grid-template-columns:1.3fr 100px 106px 1.3fr 150px 1.2fr 44px}
+
+.datarow.k-dom{border-left:8px solid var(--k-dom)}
+.datarow.k-ovs{border-left:8px solid var(--k-ovs);background:#fff8ee}
+.datarow.k-cht{border-left:8px solid var(--k-cht);background:#f7f2fe}
+.datarow.k-mga{border-left:8px solid var(--k-mga);background:#eff7fd}
+.kindtag{display:inline-block;font-size:13px;font-weight:700;padding:3px 9px;border-radius:99px;border:2px solid;white-space:nowrap}
+.kindtag.dom{color:var(--k-dom);border-color:var(--k-dom);background:#f1f2f4}
+.kindtag.ovs{color:var(--k-ovs);border-color:var(--k-ovs);background:#fdf3e3}
+.kindtag.cht{color:var(--k-cht);border-color:var(--k-cht);background:#f3ecfd}
+.kindtag.mga{color:var(--k-mga);border-color:var(--k-mga);background:#e8f3fb}
+
+.charter{grid-column:1 / -1;display:none;gap:12px;align-items:flex-end;flex-wrap:wrap;
+  border-top:2px dashed var(--k-cht);margin-top:4px;padding-top:11px}
+.datarow.want-charter .charter{display:flex}
+.charter .cf{display:flex;flex-direction:column;gap:4px}
+.charter .cf span{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--k-cht)}
+.charter .cf input{min-width:210px}
+.charter .req{color:var(--alert);font-weight:700;font-size:14px;align-self:center}
+input.miss{border-color:var(--alert)!important;background:#fdeee9!important}
+
+textarea.memo{width:100%;min-height:96px;border:2px solid var(--line);border-radius:var(--r);padding:12px;resize:vertical;font-size:18px}
+
+.savebar{position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;border-top:3px solid var(--ink);padding:11px 16px calc(11px + env(safe-area-inset-bottom))}
+.savebar-in{max-width:1320px;margin:0 auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.checks{flex:1;min-width:260px;font-size:16px;line-height:1.5}
+.check-ok{color:var(--ok);font-weight:700}
+.check-ng{color:var(--alert);font-weight:700}
+.check-wa{color:var(--warn);font-weight:700}
+.btn{border:0;border-radius:var(--r);padding:0 26px;min-height:62px;font-size:20px;font-weight:700;cursor:pointer;letter-spacing:.03em}
+.btn-primary{background:var(--signal);color:#fff}
+.btn-primary:hover{background:var(--signal-dk)}
+.btn-primary:disabled{background:var(--ink-3);cursor:not-allowed}
+.btn-ghost{background:#fff;border:2px solid var(--line);color:var(--ink)}
+.btn-ghost:hover{background:#f3f1ec}
+.btn-sm{min-height:52px;font-size:17px;padding:0 18px}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:110px;z-index:80;background:var(--ink);color:#fff;
+  padding:15px 26px;border-radius:var(--r);font-weight:700;font-size:19px;opacity:0;pointer-events:none;transition:opacity .18s}
+.toast.show{opacity:1}
+.toast.ng{background:var(--alert)}
+
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.data{width:100%;border-collapse:collapse;font-size:16px}
+table.data th,table.data td{border-bottom:1.5px solid var(--line-2);padding:10px 12px;text-align:left;white-space:nowrap}
+table.data thead th{background:#f5f3ee;border-bottom:2px solid var(--line);font-size:14px;letter-spacing:.06em}
+table.data td.n,table.data th.n{text-align:right;font-family:var(--fs-num);font-variant-numeric:tabular-nums}
+table.data tfoot td{border-top:3px solid var(--ink);font-weight:700;background:#f5f3ee}
+table.data tbody tr:hover{background:#f8f7f3}
+table.data input.rate{width:104px;text-align:right;font-family:var(--fs-num);border:2px solid var(--line);
+  border-radius:4px;padding:7px 9px;min-height:44px;font-size:17px;background:#fffdf5}
+table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px}
+.kpi{background:var(--card);border:2px solid var(--line);border-left:8px solid var(--signal);border-radius:var(--r);padding:14px 17px}
+.kpi .k{font-size:13px;letter-spacing:.1em;color:var(--ink-2);font-weight:700}
+.kpi .v{font-family:var(--fs-num);font-variant-numeric:tabular-nums;font-size:30px;font-weight:700}
+.kpi .v small{font-size:16px;font-weight:400;color:var(--ink-2);margin-left:4px}
+
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.splitcard{border:2px solid var(--line);border-radius:var(--r);padding:14px 17px;background:#fff}
+.splitcard .k{font-size:14px;color:var(--ink-2);font-weight:700;letter-spacing:.06em}
+.splitcard .v{font-family:var(--fs-num);font-variant-numeric:tabular-nums;font-size:28px;font-weight:700}
+.splitcard .s{font-size:13px;color:var(--ink-3);line-height:1.45}
+.splitcard.sum{background:var(--ink);color:#fff;border-color:var(--ink)}
+.splitcard.sum .k,.splitcard.sum .s{color:#b9c0c8}
+
+.bulkbar{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;background:#f5f3ee;border:2px solid var(--line);
+  border-radius:var(--r);padding:13px 15px;margin-bottom:14px}
+.bulkbar .field input{min-height:48px;width:130px}
+
+.chipstrip{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:7px}
+.chip{border:2px solid var(--line);border-radius:3px;background:#fff;padding:6px 3px 7px;text-align:center;cursor:pointer;font-family:var(--fs-num)}
+.chip .d{font-size:19px;font-weight:700;line-height:1.1}
+.chip .w{font-size:12px;color:var(--ink-3)}
+.chip .m{font-size:12px;line-height:1.2;margin-top:2px;font-family:var(--fs-jp)}
+.chip.done{background:#eaf6ef;border-color:var(--ok)} .chip.done .m{color:var(--ok);font-weight:700}
+.chip.miss{background:#fdeee9;border-color:var(--alert)} .chip.miss .m{color:var(--alert);font-weight:700}
+.chip.future,.chip.off{background:#f3f1ec;color:var(--ink-3)} .chip.off{border-style:dashed}
+.chip.future .m,.chip.off .m{color:var(--ink-3)}
+.chip.sun .d{color:var(--alert)} .chip.sat .d{color:var(--signal)}
+.chip:hover{box-shadow:0 0 0 3px var(--signal) inset}
+.legend{display:flex;gap:18px;font-size:14px;color:var(--ink-2);margin:8px 0 18px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:2px;margin-right:6px;vertical-align:-2px;border:2px solid}
+.legend .l-done i{background:#eaf6ef;border-color:var(--ok)}
+.legend .l-miss i{background:#fdeee9;border-color:var(--alert)}
+.legend .l-fut i{background:#f3f1ec;border-color:var(--line)}
+
+.installbar{background:#eef4fb;border:2px solid var(--signal);border-left-width:8px;border-radius:var(--r);
+  padding:15px 18px;margin-bottom:22px;display:none;align-items:center;gap:18px;flex-wrap:wrap}
+.installbar.show{display:flex}
+.installbar .imsg{flex:1;min-width:280px;font-size:18px;line-height:1.55}
+.installbar .imsg b{color:var(--signal);display:block;font-size:19px;margin-bottom:3px}
+.installbar button{background:var(--signal);color:#fff;border:0;border-radius:var(--r);
+  min-height:60px;padding:0 26px;font-size:19px;font-weight:700;cursor:pointer;white-space:nowrap}
+.installbar button:hover{background:var(--signal-dk)}
+.installbar .later{background:#fff;border:2px solid var(--line);color:var(--ink-2);min-height:60px;padding:0 18px;font-size:16px}
+
+.permbar{background:#fdf5e8;border:2px solid var(--warn);border-left-width:8px;border-radius:var(--r);
+  padding:15px 18px;margin-bottom:22px;display:none;align-items:center;gap:18px;flex-wrap:wrap}
+.permbar.show{display:flex}
+.permbar .pmsg{flex:1;min-width:280px;font-size:18px;line-height:1.55}
+.permbar .pmsg b{color:var(--warn);display:block;font-size:19px;margin-bottom:3px}
+.permbar .pmsg .hintline{font-size:15px;color:var(--ink-2);margin-top:5px}
+.permbar .pmsg .hintline em{font-style:normal;font-weight:700;background:#fff;border:2px solid var(--warn);
+  color:var(--warn);border-radius:4px;padding:1px 8px;margin:0 2px;display:inline-block}
+.permbar button{background:var(--warn);color:#fff;border:0;border-radius:var(--r);
+  min-height:60px;padding:0 26px;font-size:19px;font-weight:700;cursor:pointer;white-space:nowrap}
+.permbar button:hover{background:#7d4908}
+.permbar .later{background:#fff;border:2px solid var(--line);color:var(--ink-2);min-height:60px;padding:0 18px;font-size:16px}
+.permbar .later:hover{background:#f3f1ec}
+
+.alertbar{background:#fdeee9;border:2px solid var(--alert);border-left-width:8px;border-radius:var(--r);padding:14px 17px;margin-bottom:22px;font-size:18px}
+.alertbar b{color:var(--alert)}
+.alertbar .days{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.alertbar .days button{border:2px solid var(--alert);background:#fff;color:var(--alert);border-radius:3px;padding:9px 13px;
+  font-weight:700;cursor:pointer;font-family:var(--fs-num);min-height:48px;font-size:17px}
+.alertbar .days button:hover{background:var(--alert);color:#fff}
+
+.setrow{display:grid;grid-template-columns:1fr 190px 44px;gap:10px;align-items:center;padding:9px 6px;border-bottom:1.5px solid var(--line-2)}
+.setrow input[type=text],.setrow select{border:2px solid var(--line);border-radius:var(--r);padding:10px;min-height:50px;width:100%;font-size:18px}
+.sethead{font-size:13px;letter-spacing:.08em;color:var(--ink-2);font-weight:700}
+.note{font-size:16px;color:var(--ink-2);background:#f5f3ee;border-left:6px solid var(--line);padding:12px 15px;border-radius:0 var(--r) var(--r) 0;margin:12px 0;line-height:1.6}
+.pill{display:inline-block;font-size:13px;padding:2px 9px;border-radius:99px;border:2px solid;font-weight:700}
+.pill.y{color:var(--ok);border-color:var(--ok);background:#eaf6ef}
+.wdpick{display:flex;gap:10px;flex-wrap:wrap}
+.wdpick label{display:flex;align-items:center;gap:8px;border:2px solid var(--line);border-radius:var(--r);padding:11px 16px;background:#fff;cursor:pointer;min-height:52px;font-size:18px}
+.wdpick input{width:24px;height:24px;accent-color:var(--signal)}
+.loading{padding:30px;text-align:center;color:var(--ink-2);font-size:18px}
+.barcell{display:flex;align-items:center;gap:9px;min-width:180px}
+.bar{height:13px;background:var(--signal);border-radius:2px;min-width:2px}
+
+@media (max-width:1000px){
+  .carriers{grid-template-columns:1fr}
+  .rowhead{display:none}
+  .datarow{grid-template-columns:1fr 1fr !important;padding:13px 11px;background:#fff}
+  .datarow .cell{display:flex;flex-direction:column;gap:4px}
+  .datarow .cell.full{grid-column:1 / -1}
+  .datarow .lbl{display:block;font-size:13px;letter-spacing:.08em;color:var(--ink-2);font-weight:700}
+  .del{width:100%;grid-column:1 / -1}
+  .setrow{grid-template-columns:1fr 1fr}
+  .sethead{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+@media print{.topbar,.savebar,.ctx,.addrow,.del{display:none}body{background:#fff;padding:0}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand"><b>日計表</b><span>EC BASE LOGI</span></div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-view="input" aria-selected="true">入力</button>
+      <button class="tab" role="tab" data-view="monthly" aria-selected="false">月次集計</button>
+      <button class="tab" role="tab" data-view="status" aria-selected="false">記入状況</button>
+      <button class="tab" role="tab" data-view="settings" aria-selected="false">設定</button>
+    </nav>
+  </div>
+</header>
+
+<div class="ctx" id="ctxbar">
+  <div class="ctx-in">
+    <div class="field"><label for="f-date">日付</label><input type="date" id="f-date"></div>
+    <div class="field"><label for="f-site">拠点</label><select id="f-site"></select></div>
+    <div class="field"><label for="f-writer">記入者</label><input type="text" id="f-writer" placeholder="名前を入れる" autocomplete="name"></div>
+    <div class="sync-chip"><span class="dot" id="syncdot"></span><span id="synctext">確認中</span></div>
+  </div>
+</div>
+
+<main>
+
+<section class="view active" id="view-input">
+  <div class="installbar" id="installbar">
+    <div class="imsg">
+      <b>アプリとして入れると、毎回の許可がなくなります</b>
+      デスクトップにアイコンができ、共有フォルダの許可を聞かれなくなります。ネットが止まっていても開けます。
+    </div>
+    <button id="install-go">アプリとして入れる</button>
+    <button class="later" id="install-later">あとで</button>
+  </div>
+  <div class="permbar" id="permbar">
+    <div class="pmsg">
+      <b>共有フォルダにつながっていません</b>
+      いま入力した分は、この端末には保存されます。ボタンを押してフォルダにつなぐと、ほかの拠点の分とまとめて集計できます。
+      <div class="hintline">つぎに出る画面で <em>毎回許可</em> を選ぶと、次からこの表示は出なくなります。</div>
+    </div>
+    <button id="perm-connect">共有フォルダにつなぐ</button>
+    <button class="later" id="perm-later">あとで</button>
+  </div>
+  <div id="miss-alert"></div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">01</span><h2>運送会社ごとの出荷数</h2></div>
+    <div class="block-bd"><div class="carriers" id="carriers"></div></div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">02</span><h2>出荷</h2><span class="hint">チャーター便・海外出荷・LOGILESS未導入の企業</span></div>
+    <div class="block-bd">
+      <div class="rowhead g-ship"><div>企業名</div><div>区分</div><div>件数</div><div>ピック数</div><div>出荷個数</div><div>詳細（型番など）</div></div>
+      <div class="rows" id="rows-ship"></div>
+      <button class="addrow" data-add="ship">＋ 出荷の行を追加</button>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">03</span><h2>セット組・テスター作成</h2><span class="hint">付帯作業</span></div>
+    <div class="block-bd">
+      <div class="rowhead g-set"><div>企業名</div><div>作業内容</div><div>ピック数</div><div>セット数</div><div>備考（組換え商品名など）</div></div>
+      <div class="rows" id="rows-set"></div>
+      <button class="addrow" data-add="set">＋ セット組の行を追加</button>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">04</span><h2>入荷・入庫</h2><span class="hint">付帯作業</span></div>
+    <div class="block-bd">
+      <div class="rowhead g-in"><div>企業名</div><div>パレット数</div><div>箱数</div><div>ピース数</div><div>商品名</div><div>備考</div></div>
+      <div class="rows" id="rows-in"></div>
+      <button class="addrow" data-add="in">＋ 入荷の行を追加</button>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">05</span><h2>返品</h2><span class="hint">付帯作業</span></div>
+    <div class="block-bd">
+      <div class="rowhead g-ret"><div>企業名</div><div>箱数</div><div>ピース数</div><div>商品名</div><div>送料の負担</div><div>着払い</div></div>
+      <div class="rows" id="rows-ret"></div>
+      <button class="addrow" data-add="ret">＋ 返品の行を追加</button>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">06</span><h2>備考</h2></div>
+    <div class="block-bd"><textarea class="memo" id="f-memo" placeholder="イレギュラー対応、申し送りなど"></textarea></div>
+  </div>
+</section>
+
+<section class="view" id="view-monthly">
+  <div class="block">
+    <div class="block-hd"><span class="block-no">月次</span><h2>集計する期間</h2></div>
+    <div class="block-bd" style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+      <div class="field"><label for="m-month">対象月</label><input type="month" id="m-month"></div>
+      <div class="field"><label for="m-site">拠点</label><select id="m-site"></select></div>
+      <button class="btn btn-primary btn-sm" id="m-run">集計する</button>
+      <button class="btn btn-ghost btn-sm" id="m-csv-comp">企業別CSVを保存</button>
+      <button class="btn btn-ghost btn-sm" id="m-csv-raw">明細CSVを保存</button>
+    </div>
+  </div>
+  <div id="m-out"></div>
+</section>
+
+<section class="view" id="view-status">
+  <div class="block">
+    <div class="block-hd"><span class="block-no">確認</span><h2>記入もれチェック</h2><span class="hint">日付を押すとその日の入力画面へ</span></div>
+    <div class="block-bd" style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+      <div class="field"><label for="s-month">対象月</label><input type="month" id="s-month"></div>
+      <button class="btn btn-primary btn-sm" id="s-run">確認する</button>
+    </div>
+  </div>
+  <div id="s-out"></div>
+</section>
+
+<section class="view" id="view-settings">
+  <div class="block" id="install-block" style="display:none">
+    <div class="block-hd"><span class="block-no">設定</span><h2>アプリとして入れる</h2><span class="hint">毎回の許可がなくなります</span></div>
+    <div class="block-bd">
+      <div id="install-state" class="note">確認中</div>
+      <button class="btn btn-primary btn-sm" id="install-go2">アプリとして入れる</button>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">設定</span><h2>共有フォルダ</h2><span class="hint">全拠点のデータを1か所にまとめます</span></div>
+    <div class="block-bd">
+      <div id="fs-state" class="note">確認中</div>
+      <div style="display:flex;gap:11px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" id="fs-pick">共有フォルダを選ぶ</button>
+        <button class="btn btn-ghost btn-sm" id="fs-sync">フォルダから読み込む</button>
+        <button class="btn btn-ghost btn-sm" id="fs-push">この端末の分をフォルダへ送る</button>
+        <button class="btn btn-ghost btn-sm" id="fs-off">共有フォルダを使わない</button>
+      </div>
+      <div class="note">社内の共有フォルダ（NAS）でも、OneDrive・Googleドライブ・Dropboxのパソコン同期フォルダでも使えます。<br><b>端末を入れ替えたときは</b>、同じフォルダを選んだあと「フォルダから読み込む」を押すと、過去の全期間が戻ります。</div>
+      <div class="note" style="border-left-color:var(--warn);background:#fdf5e8">
+        <b>開くたびに許可を求められるとき</b><br>
+        許可の画面には3つのボタンがあります。<b>「毎回許可」</b>を選んでください。「今回は許可」だと、ブラウザを閉じるたびに許可し直すことになります。<br>
+        <span style="color:var(--ink-3)">※3つのボタンが出ない、または「毎回許可」を選んでも毎回聞かれる場合は、ファイルを直接ダブルクリックで開いている（アドレスが <code>file://</code> で始まる）ことが原因です。この場合ブラウザの決まりで許可を覚えられません。<b>入力・保存はそのまま続けられます</b>。上部のボタンを1日1回押せば、その日の分はまとめて共有フォルダに送られます。</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">設定</span><h2>ファイルで受け渡し</h2><span class="hint">共有フォルダが使えない端末はこちら</span></div>
+    <div class="block-bd">
+      <div style="display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end">
+        <div class="field"><label for="x-month">書き出す月</label><input type="month" id="x-month"></div>
+        <button class="btn btn-primary btn-sm" id="x-export">この月のデータを書き出す</button>
+        <button class="btn btn-ghost btn-sm" id="x-import">受け取ったファイルを読み込む</button>
+        <input type="file" id="x-file" accept="application/json" multiple hidden>
+      </div>
+      <div class="note"><b>復元にも使えます。</b>共有フォルダにある日ごとのファイル（<code>2026-07-30_本社倉庫.json</code>）をそのまま選んでください。まとめて選択できます。端末側の内容のほうが新しい場合は、上書きするか確認が出ます。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">設定</span><h2>休みの曜日</h2><span class="hint">記入もれチェックの対象から外します</span></div>
+    <div class="block-bd"><div class="wdpick" id="offdays"></div></div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">設定</span><h2>拠点</h2></div>
+    <div class="block-bd">
+      <div id="sites-list"></div>
+      <button class="addrow" id="add-site">＋ 拠点を追加</button>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">設定</span><h2>企業</h2></div>
+    <div class="block-bd">
+      <div class="setrow sethead"><div>企業名</div><div>LOGILESS</div><div></div></div>
+      <div id="comp-list"></div>
+      <button class="addrow" id="add-comp">＋ 企業を追加</button>
+      <div class="note">ここは企業名の一覧だけです。<b>付帯作業の単価は、月次集計の画面で月ごとに入力します。</b><br>
+      <b>ここで登録した内容は、共有フォルダを通じてほかのパソコンにも自動で行き渡ります。</b>1台で登録すれば、ほかの端末は共有フォルダにつなぐだけで同じ一覧になります。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">設定</span><h2>セット組の作業内容</h2><span class="hint">03のプルダウンに出ます</span></div>
+    <div class="block-bd">
+      <div id="works-list"></div>
+      <button class="addrow" id="add-work">＋ 作業内容を追加</button>
+      <div class="note">よく使う作業内容をここに登録しておくと、入力画面で選ぶだけになり、表記のゆれがなくなります。単価は月次集計の画面で、企業ごとに入力します。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">設定</span><h2>バックアップ</h2></div>
+    <div class="block-bd" style="display:flex;gap:11px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" id="b-export">設定とデータを書き出す</button>
+      <button class="btn btn-ghost btn-sm" id="b-import">書き出したファイルを読み込む</button>
+      <input type="file" id="b-file" accept="application/json" hidden>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div class="savebar" id="savebar">
+  <div class="savebar-in">
+    <div class="checks" id="checks"></div>
+    <button class="btn btn-ghost" id="btn-clear">入力を消す</button>
+    <button class="btn btn-primary" id="btn-save">この日の日計表を保存</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+const Store = (() => {
+  let mem = {}, ok = false;
+  try { localStorage.setItem("__t","1"); localStorage.removeItem("__t"); ok = true; } catch(e){ ok = false; }
+  return {
+    get(k){ try { return ok ? localStorage.getItem(k) : (k in mem ? mem[k] : null); } catch(e){ return k in mem ? mem[k] : null; } },
+    set(k,v){ try { if(ok) localStorage.setItem(k,v); else mem[k]=v; } catch(e){ mem[k]=v; } }
+  };
+})();
+const K_CFG="ebl_nikkei_cfg_v2", K_REC="ebl_nikkei_rec_v1", K_RATE="ebl_nikkei_rate_v1", K_WRITER="ebl_nikkei_writer";
+const K_DIRTY="ebl_nikkei_dirty_v1";
+
+const DEFAULT_CFG = {
+  offDays:[0],
+  sites:["本社倉庫","八寸町倉庫"],
+  works:["什器組み換え","パネル入れ替え","セット組","テスター作成"],
+  companies:[],
+  ts:0
+};
+
+let cfg = load(K_CFG, DEFAULT_CFG);
+let records = load(K_REC, {});
+let rates = load(K_RATE, {});
+let dirty = load(K_DIRTY, []);   // 共有フォルダに未送信の「日付|拠点」
+function load(k,def){ try{ const v=Store.get(k); return v? JSON.parse(v):JSON.parse(JSON.stringify(def)); }catch(e){ return JSON.parse(JSON.stringify(def)); } }
+function saveCfg(push){
+  cfg.ts = Date.now();
+  Store.set(K_CFG, JSON.stringify(cfg));
+  if(push !== false) pushSettings();
+}
+const SETTINGS_FILE = "_設定.json";
+async function pushSettings(){
+  if(!FS.dir) return;
+  try{
+    const fh = await FS.dir.getFileHandle(SETTINGS_FILE, {create:true});
+    const w = await fh.createWritable();
+    await w.write(JSON.stringify(cfg, null, 1));
+    await w.close();
+  }catch(e){}
+}
+async function pullSettings(){
+  if(!FS.dir) return false;
+  try{
+    const fh = await FS.dir.getFileHandle(SETTINGS_FILE);
+    const remote = JSON.parse(await (await fh.getFile()).text());
+    if(remote && num(remote.ts) > num(cfg.ts)){
+      cfg = remote;
+      Store.set(K_CFG, JSON.stringify(cfg));
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+function saveRec(){ Store.set(K_REC, JSON.stringify(records)); }
+function saveRate(){ Store.set(K_RATE, JSON.stringify(rates)); }
+function saveDirty(){ Store.set(K_DIRTY, JSON.stringify(dirty)); }
+function markDirty(k){ if(dirty.indexOf(k)<0){ dirty.push(k); saveDirty(); } }
+async function flushDirty(){
+  if(!FS.dir || !dirty.length) return 0;
+  let n = 0;
+  for(const k of dirty.slice()){
+    const rec = records[k];
+    if(!rec){ dirty = dirty.filter(x=>x!==k); continue; }
+    try{ await FS.write(rec); dirty = dirty.filter(x=>x!==k); n++; }catch(e){ break; }
+  }
+  saveDirty();
+  return n;
+}
+
+const $  = (s,r)=> (r||document).querySelector(s);
+const $$ = (s,r)=> Array.from((r||document).querySelectorAll(s));
+const num = v => { const n = parseFloat(String(v==null?"":v).replace(/[^\d.-]/g,"")); return isFinite(n)? n : 0; };
+const yen = n => "¥" + Math.round(n).toLocaleString("ja-JP");
+const WD = ["日","月","火","水","木","金","土"];
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function monthStr(){ return todayStr().slice(0,7); }
+function key(date,site){ return date+"|"+site; }
+function isOffDay(ds){ return (cfg.offDays||[]).indexOf(new Date(ds+"T00:00:00").getDay()) >= 0; }
+function toast(msg, ng){
+  const t=$("#toast"); t.textContent=msg; t.className="toast show"+(ng?" ng":"");
+  clearTimeout(t._t); t._t=setTimeout(()=>{ t.className="toast"; }, 2800);
+}
+function isLogiless(n){ const c=cfg.companies.find(x=>x.n===n); return !!(c && c.l); }
+
+const KINDS = ["チャーター便","西濃メガチャーター便","海外出荷","LOGILESS未導入"];
+const KIND_CLS = {"チャーター便":"cht","西濃メガチャーター便":"mga","海外出荷":"ovs","LOGILESS未導入":"dom"};
+const kindCls = k => KIND_CLS[k] || "dom";
+const isCharter = k => k==="チャーター便" || k==="西濃メガチャーター便";
+
+/* 単価：セット組は「企業 × 作業内容」ごと、入荷・返品は「企業」ごと。いずれも月ごとに保存 */
+function migrateRates(){
+  let changed = false;
+  Object.keys(rates).forEach(ym=>{
+    const m = rates[ym];
+    if(!m || m.work) return;
+    const comp = {};
+    if(m.comp){ Object.keys(m.comp).forEach(n=>{ const r=m.comp[n]||{}; comp[n]={pi:num(r.pi),pr:num(r.pr)}; }); }
+    else { Object.keys(m).forEach(n=>{ if(n==="works") return; const r=m[n]||{}; comp[n]={pi:num(r.pi),pr:num(r.pr)}; }); }
+    rates[ym] = {work:{}, comp:comp};
+    changed = true;
+  });
+  if(changed) saveRate();
+}
+function ensureYm(ym){
+  if(!rates[ym]) rates[ym] = {work:{}, comp:{}};
+  if(!rates[ym].work) rates[ym].work = {};
+  if(!rates[ym].comp) rates[ym].comp = {};
+  return rates[ym];
+}
+function rateWork(ym, comp, w){ return num((((rates[ym]||{}).work||{})[comp]||{})[w]); }
+function setRateWork(ym, comp, w, v){
+  const m = ensureYm(ym);
+  if(!m.work[comp]) m.work[comp] = {};
+  m.work[comp][w] = num(v); saveRate();
+}
+function rateComp(ym, c){ const r = ((rates[ym]||{}).comp||{})[c] || {}; return {pi:num(r.pi), pr:num(r.pr)}; }
+function setRateComp(ym, c, f, v){
+  const m = ensureYm(ym);
+  if(!m.comp[c]) m.comp[c] = {pi:0,pr:0};
+  m.comp[c][f] = num(v); saveRate();
+}
+function prevMonth(ym){
+  const [y,m] = ym.split("-").map(Number);
+  const d = new Date(y, m-2, 1);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+}
+
+const CARRIERS = [
+  {id:"yamato", name:"ヤマト運輸", type:"zone",
+   zones:[["normal","常温",""],["jitbox","JITBOX","jit"],["frozen","冷凍","fz"],["chilled","冷蔵","ch"]]},
+  {id:"sagawa", name:"佐川急便", type:"zone",
+   zones:[["normal","常温",""],["frozen","冷凍","fz"],["chilled","冷蔵","ch"]]},
+  {id:"seino",  name:"西濃運輸（路線便）", type:"pallet"}
+];
+function buildCarriers(){
+  $("#carriers").innerHTML = CARRIERS.map(c=>{
+    if(c.type === "pallet"){
+      return `<div class="carrier" data-c="${c.id}">
+        <div class="carrier-hd">${c.name}</div>
+        <div class="carrier-bd">
+          <div class="zrow"><div class="zname"><span class="zbar"></span>パレット数</div>
+            <input class="num" inputmode="numeric" data-c="${c.id}" data-z="pallets" placeholder="0"><span class="unit">枚</span></div>
+          <div class="zrow"><div class="zname"><span class="zbar"></span>箱数</div>
+            <input class="num big" inputmode="numeric" data-c="${c.id}" data-z="boxes" placeholder="0"><span class="unit">箱</span></div>
+          <div class="mismatch" data-mm="${c.id}"></div>
+        </div></div>`;
+    }
+    return `<div class="carrier" data-c="${c.id}">
+      <div class="carrier-hd">${c.name}</div>
+      <div class="carrier-bd">
+        ${c.zones.map(z=>`
+          <div class="zrow"><div class="zname"><span class="zbar ${z[2]}"></span>${z[1]}</div>
+            <input class="num" inputmode="numeric" data-c="${c.id}" data-z="${z[0]}" placeholder="0"><span class="unit">箱</span></div>`).join("")}
+        <div class="zrow total"><div class="zname">最終出荷合計</div>
+          <input class="num big" inputmode="numeric" data-c="${c.id}" data-z="final" placeholder="0"><span class="unit">箱</span></div>
+        <div class="mismatch" data-mm="${c.id}"></div>
+      </div></div>`;
+  }).join("");
+
+  $$('#carriers input.num').forEach(inp=>{
+    inp.addEventListener("input", ()=>{
+      const cid = inp.dataset.c;
+      if(cid !== "seino"){
+        if(inp.dataset.z === "final"){ inp.dataset.touched = "1"; }
+        else {
+          const fin = $(`#carriers input[data-c="${cid}"][data-z="final"]`);
+          if(!fin.dataset.touched) fin.value = sumZones(cid) || "";
+        }
+      }
+      checkCarrier(cid); recalc();
+    });
+  });
+}
+function sumZones(cid){
+  return $$(`#carriers input[data-c="${cid}"]`).filter(i=>i.dataset.z!=="final").reduce((a,i)=>a+num(i.value),0);
+}
+function seinoVals(){
+  return { pallets: num($('#carriers input[data-c="seino"][data-z="pallets"]').value),
+           boxes:   num($('#carriers input[data-c="seino"][data-z="boxes"]').value) };
+}
+function checkCarrier(cid){
+  const box = $(`[data-mm="${cid}"]`);
+  if(cid === "seino"){
+    const v = seinoVals(), bi = $('#carriers input[data-c="seino"][data-z="boxes"]');
+    if(v.pallets > 0 && v.boxes <= 0){
+      box.textContent = "⚠ パレットを入れたときは、パレット出しした箱数も必ず入れてください";
+      box.classList.add("show"); bi.classList.add("need");
+    } else { box.classList.remove("show"); bi.classList.remove("need"); }
+    return;
+  }
+  const fin = num($(`#carriers input[data-c="${cid}"][data-z="final"]`).value), s = sumZones(cid);
+  if(fin !== s && (fin || s)){ box.textContent = `⚠ 温度帯の合計 ${s} 箱 と 最終出荷合計 ${fin} 箱 が違います`; box.classList.add("show"); }
+  else box.classList.remove("show");
+}
+function carrierTotalBoxes(){
+  let t = 0;
+  CARRIERS.forEach(c=>{
+    if(c.type==="pallet") t += num($(`#carriers input[data-c="${c.id}"][data-z="boxes"]`).value);
+    else t += num($(`#carriers input[data-c="${c.id}"][data-z="final"]`).value);
+  });
+  return t;
+}
+function recCarrierBoxes(r){
+  let t = 0;
+  CARRIERS.forEach(c=>{
+    const o = (r.carriers && r.carriers[c.id]) || {};
+    t += (c.type==="pallet") ? num(o.boxes) : num(o.final);
+  });
+  return t;
+}
+
+const compOptions = () => {
+  const y = cfg.companies.filter(c=>c.l).map(c=>`<option>${esc(c.n)}</option>`).join("");
+  const n = cfg.companies.filter(c=>!c.l).map(c=>`<option>${esc(c.n)}</option>`).join("");
+  return `<option value="">選ぶ</option><optgroup label="LOGILESS済">${y}</optgroup><optgroup label="LOGILESS未">${n}</optgroup><optgroup label="その他"><option value="__other">（直接入力）</option></optgroup>`;
+};
+
+const workOptions = () =>
+  `<option value="">選ぶ</option>` + (cfg.works||[]).map(w=>`<option>${esc(w)}</option>`).join("")
+  + `<option value="__other">（直接入力）</option>`;
+
+const SPECS = {
+  ship:{ grid:"g-ship", cells:[
+    {k:"company",t:"comp",lbl:"企業名"},
+    {k:"kind",   t:"sel", lbl:"区分", opts:KINDS},
+    {k:"cases",  t:"num", lbl:"件数"},
+    {k:"picks",  t:"num", lbl:"ピック数"},
+    {k:"qty",    t:"num", lbl:"出荷個数"},
+    {k:"detail", t:"text",lbl:"詳細（型番など）",full:1}
+  ]},
+  set:{ grid:"g-set", cells:[
+    {k:"company",t:"comp",lbl:"企業名"},
+    {k:"work",   t:"wsel",lbl:"作業内容",full:1},
+    {k:"picks",  t:"num", lbl:"ピック数"},
+    {k:"sets",   t:"num", lbl:"セット数"},
+    {k:"note",   t:"text",lbl:"備考（組換え商品名など）",full:1}
+  ]},
+  in:{ grid:"g-in", cells:[
+    {k:"company",t:"comp",lbl:"企業名"},
+    {k:"pallets",t:"num", lbl:"パレット数"},
+    {k:"boxes",  t:"num", lbl:"箱数"},
+    {k:"pieces", t:"num", lbl:"ピース数"},
+    {k:"product",t:"text",lbl:"商品名",full:1},
+    {k:"note",   t:"text",lbl:"備考",full:1}
+  ]},
+  ret:{ grid:"g-ret", cells:[
+    {k:"company",t:"comp",lbl:"企業名"},
+    {k:"boxes",  t:"num", lbl:"箱数"},
+    {k:"pieces", t:"num", lbl:"ピース数"},
+    {k:"product",t:"text",lbl:"商品名",full:1},
+    {k:"payer",  t:"sel", lbl:"送料の負担", opts:["","EBL","企業"]},
+    {k:"cod",    t:"cod", lbl:"着払い"}
+  ]}
+};
+
+function addRow(type, data){
+  data = data || {};
+  const spec = SPECS[type];
+  const row = document.createElement("div");
+  row.className = "datarow " + spec.grid;
+  row.dataset.type = type;
+  row.innerHTML = spec.cells.map(c=>{
+    const v = esc(data[c.k]);
+    let inner = "";
+    if(c.t==="comp")      inner = `<select data-k="company">${compOptions()}</select><input type="text" data-k="companyFree" placeholder="企業名を入力" style="display:none;margin-top:6px">`;
+    else if(c.t==="num")  inner = `<input class="num" inputmode="numeric" data-k="${c.k}" value="${v}" placeholder="0">`;
+    else if(c.t==="text") inner = `<input type="text" data-k="${c.k}" value="${v}">`;
+    else if(c.t==="sel")  inner = `<select data-k="${c.k}">${c.opts.map(o=>`<option value="${esc(o)}">${o||"選ぶ"}</option>`).join("")}</select>`;
+    else if(c.t==="wsel") inner = `<select data-k="work">${workOptions()}</select><input type="text" data-k="workFree" placeholder="作業内容を入力" style="display:none;margin-top:6px">`;
+    else if(c.t==="cod")  inner = `<label class="chkline"><input type="checkbox" data-k="cod">着払い</label><input type="text" data-k="codNote" placeholder="運送会社など" style="margin-top:6px">`;
+    return `<div class="cell${c.full?" full":""}"><span class="lbl">${c.lbl}</span>${inner}</div>`;
+  }).join("")
+   + `<button class="del" title="この行を消す" aria-label="この行を消す">✕</button>`
+   + (type==="ship" ? `<div class="charter">
+        <div class="cf"><span>手配会社（必須）</span><input type="text" data-k="agent" placeholder="例：〇〇急送"></div>
+        <div class="cf"><span>支払金額（必須）</span><input type="text" class="num" inputmode="numeric" data-k="pay" placeholder="0"></div>
+        <span class="req">チャーター便はこの2つを入れないと保存できません</span>
+      </div>` : "");
+
+  const sel = $('[data-k="company"]', row);
+  if(sel){
+    const free = $('[data-k="companyFree"]', row);
+    if(data.company){
+      if(Array.from(sel.options).some(o=>o.value===data.company)) sel.value = data.company;
+      else { sel.value="__other"; free.style.display="block"; free.value=data.company; }
+    }
+    sel.addEventListener("change", ()=>{ free.style.display = sel.value==="__other" ? "block" : "none"; recalc(); });
+    free.addEventListener("input", recalc);
+  }
+  const wk = $('[data-k="work"]', row);
+  if(wk){
+    const wfree = $('[data-k="workFree"]', row);
+    const wv = data.work || data.product || "";
+    if(wv){
+      if(Array.from(wk.options).some(o=>o.value===wv)) wk.value = wv;
+      else { wk.value="__other"; wfree.style.display="block"; wfree.value=wv; }
+    }
+    wk.addEventListener("change", ()=>{ wfree.style.display = wk.value==="__other" ? "block" : "none"; recalc(); });
+    wfree.addEventListener("input", recalc);
+  }
+  const kd = $('[data-k="kind"]', row);
+  if(kd){
+    kd.value = data.kind || "LOGILESS未導入";
+    const paint = ()=>{
+      row.classList.remove("k-dom","k-ovs","k-cht","k-mga");
+      row.classList.add("k-"+kindCls(kd.value));
+      row.classList.toggle("want-charter", isCharter(kd.value));
+    };
+    kd.addEventListener("change", ()=>{ paint(); recalc(); });
+    paint();
+  }
+  if(data.agent){ const a=$('[data-k="agent"]',row); if(a) a.value=data.agent; }
+  if(data.pay){   const a=$('[data-k="pay"]',row);   if(a) a.value=data.pay; }
+  if(data.payer){ const p=$('[data-k="payer"]',row); if(p) p.value=data.payer; }
+  if(data.cod){   const c=$('[data-k="cod"]',row);   if(c) c.checked=true; }
+  if(data.codNote){ const c=$('[data-k="codNote"]',row); if(c) c.value=data.codNote; }
+
+  $$("input,select", row).forEach(el=> el.addEventListener("input", recalc));
+  $(".del", row).addEventListener("click", ()=>{ row.remove(); ensureRow(type); recalc(); });
+  $("#rows-"+type).appendChild(row);
+  return row;
+}
+function ensureRow(type){ if(!$("#rows-"+type).children.length) addRow(type); }
+function rowCompany(row){
+  const sel=$('[data-k="company"]',row); if(!sel) return "";
+  return sel.value==="__other" ? ($('[data-k="companyFree"]',row).value||"").trim() : sel.value;
+}
+function rowWork(row){
+  const sel=$('[data-k="work"]',row); if(!sel) return "";
+  return sel.value==="__other" ? ($('[data-k="workFree"]',row).value||"").trim() : sel.value;
+}
+function rowVal(row,k){ const el=$(`[data-k="${k}"]`,row); if(!el) return ""; return el.type==="checkbox"? el.checked : el.value; }
+function rowEmpty(row){
+  if(rowCompany(row)) return false;
+  if(rowWork(row)) return false;
+  return !$$("input",row).some(i=> i.type!=="checkbox" && i.dataset.k!=="companyFree" && String(i.value).trim()!=="" );
+}
+
+function recalc(){
+  let shipQty=0, ovsQty=0, chtQty=0, payTotal=0, charterMissing=0;
+  $$("#rows-ship .datarow").forEach(r=>{
+    const k = rowVal(r,"kind") || "LOGILESS未導入", q = num(rowVal(r,"qty"));
+    shipQty += q;
+    if(k === "海外出荷") ovsQty += q;
+    const ag = $('[data-k="agent"]', r), py = $('[data-k="pay"]', r);
+    if(isCharter(k)){
+      chtQty += q; payTotal += num(py ? py.value : 0);
+      if(!rowEmpty(r)){
+        const noA = !(ag.value||"").trim(), noP = num(py.value) <= 0;
+        ag.classList.toggle("miss", noA); py.classList.toggle("miss", noP);
+        if(noA || noP) charterMissing++;
+      } else { ag.classList.remove("miss"); py.classList.remove("miss"); }
+    } else if(ag){ ag.classList.remove("miss"); py.classList.remove("miss"); }
+  });
+
+  const sv = seinoVals(), seinoNG = sv.pallets > 0 && sv.boxes <= 0, boxes = carrierTotalBoxes();
+
+  const msgs=[]; let blocked=false;
+  if(!$("#f-writer").value.trim()){ msgs.push(`<span class="check-ng">✕ 記入者を入れてください</span>`); blocked=true; }
+  if(seinoNG){ msgs.push(`<span class="check-ng">✕ 西濃（路線便）のパレット出しした箱数が未入力です</span>`); blocked=true; }
+  if(charterMissing){ msgs.push(`<span class="check-ng">✕ チャーター便 ${charterMissing}件の手配会社・支払金額が未入力です</span>`); blocked=true; }
+  if(!boxes && !shipQty) msgs.push(`<span class="check-wa">⚠ 出荷がまだ1件も入っていません</span>`);
+  const empties = ["set","in","ret"].filter(t=> $$("#rows-"+t+" .datarow").every(rowEmpty))
+    .map(t=>({set:"セット組",in:"入荷",ret:"返品"})[t]);
+  if(empties.length) msgs.push(`<span class="check-wa">⚠ 未入力：${empties.join("・")}（0件ならそのままでOK）</span>`);
+  if(!blocked && !msgs.length) msgs.push(`<span class="check-ok">✓ 保存できます</span>`);
+
+  let tail = `運送会社 ${boxes} 箱`;
+  if(sv.pallets) tail += `（うちパレット ${sv.pallets} 枚）`;
+  tail += ` ＋ 日計表 ${shipQty} 個口`;
+  const inner=[];
+  if(chtQty) inner.push(`チャーター ${chtQty}`);
+  if(ovsQty) inner.push(`海外 ${ovsQty}`);
+  if(inner.length) tail += `（${inner.join("・")}）`;
+  tail += ` ＝ <b>${boxes+shipQty} 個口</b>`;
+  if(payTotal) tail += `／チャーター支払 ${yen(payTotal)}`;
+  msgs.push(`<span style="color:var(--ink-2)">${tail}</span>`);
+
+  $("#checks").innerHTML = msgs.join("　");
+  $("#btn-save").disabled = blocked;
+}
+
+function collect(){
+  const rec = { date:$("#f-date").value, site:$("#f-site").value, writer:$("#f-writer").value.trim(),
+    carriers:{}, ship:[], set:[], in:[], ret:[], memo:$("#f-memo").value, ts:new Date().toISOString() };
+  CARRIERS.forEach(c=>{
+    const o={};
+    $$(`#carriers input[data-c="${c.id}"]`).forEach(i=> o[i.dataset.z]=num(i.value));
+    rec.carriers[c.id]=o;
+  });
+  ["ship","set","in","ret"].forEach(t=>{
+    $$("#rows-"+t+" .datarow").forEach(r=>{
+      if(rowEmpty(r)) return;
+      const o={company:rowCompany(r)};
+      if(t==="set") o.work = rowWork(r);
+      SPECS[t].cells.forEach(c=>{
+        if(c.k==="company" || c.k==="work") return;
+        if(c.t==="cod"){ o.cod=rowVal(r,"cod"); o.codNote=rowVal(r,"codNote"); }
+        else if(c.t==="num") o[c.k]=num(rowVal(r,c.k));
+        else o[c.k]=rowVal(r,c.k);
+      });
+      if(t==="ship" && isCharter(o.kind)){ o.agent=rowVal(r,"agent"); o.pay=num(rowVal(r,"pay")); }
+      rec[t].push(o);
+    });
+  });
+  return rec;
+}
+function fill(rec){
+  ["ship","set","in","ret"].forEach(t=> $("#rows-"+t).innerHTML="");
+  $$("#carriers input.num").forEach(i=>{ i.value=""; delete i.dataset.touched; i.classList.remove("need"); });
+  $$(".mismatch").forEach(m=>m.classList.remove("show"));
+  $("#f-memo").value = "";
+  if(rec){
+    CARRIERS.forEach(c=>{
+      const o = (rec.carriers && rec.carriers[c.id]) || {};
+      Object.keys(o).forEach(z=>{
+        const el=$(`#carriers input[data-c="${c.id}"][data-z="${z}"]`);
+        if(el){ el.value = o[z] || ""; if(z==="final" && o[z]) el.dataset.touched="1"; }
+      });
+      checkCarrier(c.id);
+    });
+    ["ship","set","in","ret"].forEach(t=> (rec[t]||[]).forEach(d=> addRow(t,d)) );
+    $("#f-memo").value = rec.memo || "";
+    if(rec.writer) $("#f-writer").value = rec.writer;
+  }
+  ["ship","set","in","ret"].forEach(ensureRow);
+  recalc();
+}
+function loadDay(){
+  const r = records[key($("#f-date").value, $("#f-site").value)];
+  fill(r || null);
+  $("#btn-save").textContent = r ? "この日の日計表を上書き保存" : "この日の日計表を保存";
+  renderMissAlert();
+}
+
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const r = indexedDB.open("ebl-nikkei",1);
+    r.onupgradeneeded = ()=> r.result.createObjectStore("kv");
+    r.onsuccess = ()=> res(r.result);
+    r.onerror   = ()=> rej(r.error);
+  });
+}
+async function idbSet(k,v){ try{ const db=await idbOpen(); await new Promise((res,rej)=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=rej; }); }catch(e){} }
+async function idbGet(k){ try{ const db=await idbOpen(); return await new Promise(res=>{ const t=db.transaction("kv","readonly"); const q=t.objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>res(null); }); }catch(e){ return null; } }
+
+const FS = {
+  supported: (typeof window !== "undefined") && typeof window.showDirectoryPicker === "function",
+  dir:null, pending:null,
+  safe(s){ return String(s||"").replace(/[\\\/:*?"<>|]/g,"_"); },
+  fname(rec){ return rec.date + "_" + this.safe(rec.site) + ".json"; },
+  async pick(){ this.dir = await window.showDirectoryPicker({mode:"readwrite", id:"ebl-nikkei", startIn:"documents"}); this.pending=null; await idbSet("dir", this.dir); return true; },
+  async restore(){
+    const h = await idbGet("dir"); if(!h) return false;
+    try{ const p = await h.queryPermission({mode:"readwrite"});
+      if(p === "granted"){ this.dir = h; return true; }
+      this.pending = h; return false;
+    }catch(e){ return false; }
+  },
+  async reauth(){
+    if(!this.pending) return false;
+    try{ const p = await this.pending.requestPermission({mode:"readwrite"});
+      if(p === "granted"){ this.dir = this.pending; this.pending = null; return true; }
+    }catch(e){}
+    return false;
+  },
+  async write(rec){
+    if(!this.dir) return false;
+    const fh = await this.dir.getFileHandle(this.fname(rec), {create:true});
+    const w = await fh.createWritable(); await w.write(JSON.stringify(rec)); await w.close();
+    return true;
+  },
+  async readMonth(ym){
+    const out = []; if(!this.dir) return out;
+    for await (const [name, h] of this.dir.entries()){
+      if(h.kind !== "file" || !name.endsWith(".json")) continue;
+      if(ym && name.slice(0,7) !== ym) continue;
+      try{ out.push(JSON.parse(await (await h.getFile()).text())); }catch(e){}
+    }
+    return out;
+  }
+};
+function mergeRecords(list, force){
+  let n = 0;
+  (list||[]).forEach(r=>{
+    if(!r || !r.date || !r.site) return;
+    const k = key(r.date, r.site), cur = records[k];
+    if(!cur || force || String(r.ts||"") > String(cur.ts||"")){ records[k] = r; n++; }
+  });
+  if(n) saveRec();
+  return n;
+}
+function setSync(state, text){ $("#syncdot").className = "dot " + state; $("#synctext").textContent = text; }
+
+let permDismissed = false;
+function renderPermBar(){
+  const bar = $("#permbar"); if(!bar) return;
+  const need = FS.supported && !FS.dir && !permDismissed && (FS.pending || dirty.length);
+  bar.classList.toggle("show", !!need);
+  if(!need) return;
+  const msg = $(".pmsg", bar);
+  if(dirty.length){
+    msg.innerHTML = `<b>共有フォルダに送っていない日が ${dirty.length}日分あります</b>
+      この端末には保存されています。ボタンを押してつなぐと、まとめてフォルダへ送ります。
+      <div class="hintline">つぎに出る画面で <em>毎回許可</em> を選ぶと、次からこの表示は出なくなります。</div>`;
+  } else {
+    msg.innerHTML = `<b>共有フォルダにつながっていません</b>
+      いま入力した分は、この端末には保存されます。ボタンを押してフォルダにつなぐと、ほかの拠点の分とまとめて集計できます。
+      <div class="hintline">つぎに出る画面で <em>毎回許可</em> を選ぶと、次からこの表示は出なくなります。</div>`;
+  }
+}
+
+/* 共有フォルダに接続する（許可の再取得 → 未送信の送信 → 当月の読み込み） */
+async function connectFolder(){
+  if(!FS.supported){ toast("この端末では共有フォルダを使えません", true); return false; }
+  try{
+    let ok = false;
+    if(FS.pending) ok = await FS.reauth();
+    if(!ok && !FS.dir){ await FS.pick(); ok = true; }
+    if(!FS.dir) return false;
+    fsStatus(); renderPermBar();
+    const gotCfg = await pullSettings();
+    if(gotCfg){ renderOffDays(); renderSites(); renderComps(); renderWorks(); renderSiteSelects(); }
+    else { await pushSettings(); }
+    const sent = await flushDirty();
+    const got  = await syncFromFolder(monthStr());
+    loadDay(); renderPermBar();
+    const parts = [];
+    if(sent) parts.push("未送信 "+sent+"日分を送りました");
+    if(got)  parts.push("ほかの端末の "+got+"日分を読み込みました");
+    toast(parts.length ? parts.join("／") : "共有フォルダにつながりました");
+    return true;
+  }catch(e){
+    toast("フォルダにつなげませんでした", true);
+    return false;
+  }
+}
+function fsStatus(){
+  const box = $("#fs-state");
+  if(FS.dir){
+    setSync("on","共有フォルダに保存中");
+    box.style.borderLeftColor="var(--ok)"; box.style.background="#eaf6ef";
+    box.innerHTML = `<b>つながっています：</b>${esc(FS.dir.name)}　保存するたびに、このフォルダへ自動で書き込みます。`
+      + (dirty.length? `<br><span style="color:var(--warn)">未送信が ${dirty.length}日分あります。「この端末の分をフォルダへ送る」を押してください。</span>`:"");
+  } else if(FS.pending){
+    setSync("off","共有フォルダの許可待ち");
+    box.style.borderLeftColor="var(--warn)"; box.style.background="#fdf5e8";
+    box.innerHTML = `<b>許可が必要です。</b>「共有フォルダを選ぶ」を押し、出てきた画面で <b>「毎回許可」</b> を選んでください。「今回は許可」を選ぶと、ブラウザを閉じるたびに同じ確認が出ます。`;
+  } else if(!FS.supported){
+    setSync("","この端末に保存");
+    box.style.borderLeftColor="var(--line)"; box.style.background="#f5f3ee";
+    box.innerHTML = `この端末（ブラウザ）は共有フォルダに対応していません。データはこの端末の中に保存されます。受け渡しは下の「ファイルで受け渡し」を使ってください。<br><span style="color:var(--ink-3)">※対応：パソコンのChrome / Edge</span>`;
+  } else {
+    setSync("","この端末に保存");
+    box.style.borderLeftColor="var(--line)"; box.style.background="#f5f3ee";
+    box.innerHTML = `いまはこの端末の中だけに保存しています。全拠点の集計をまとめたい場合は「共有フォルダを選ぶ」を押してください。`;
+  }
+  renderPermBar();
+}
+async function syncFromFolder(ym){ if(!FS.dir) return 0; try{ return mergeRecords(await FS.readMonth(ym)); }catch(e){ return 0; } }
+async function pushAllToFolder(){
+  if(!FS.dir){ toast("先に共有フォルダを選んでください", true); return; }
+  let n=0; for(const r of Object.values(records)){ try{ await FS.write(r); n++; }catch(e){} }
+  dirty = []; saveDirty(); fsStatus(); renderPermBar();
+  toast(n + "日分をフォルダに送りました");
+}
+
+$("#btn-save").addEventListener("click", async ()=>{
+  const rec = collect();
+  if(!rec.date){ toast("日付を選んでください", true); return; }
+  if(!rec.writer){ toast("記入者を入れてください", true); return; }
+  const rk = key(rec.date, rec.site);
+  records[rk] = rec; saveRec();
+  Store.set(K_WRITER, rec.writer);
+  renderMissAlert();
+  $("#btn-save").textContent = "この日の日計表を上書き保存";
+  if(FS.dir){
+    $("#btn-save").disabled = true;
+    try{ await FS.write(rec); toast("保存しました（共有フォルダにも反映）"); }
+    catch(e){
+      markDirty(rk);
+      toast("この端末には保存できました。あとで共有フォルダに送ります", true);
+      FS.pending = FS.dir; FS.dir = null; fsStatus();
+    }
+    $("#btn-save").disabled = false;
+  } else {
+    if(FS.supported && FS.pending){ markDirty(rk); renderPermBar(); toast("この端末に保存しました（共有フォルダは未送信）"); }
+    else toast("この端末に保存しました");
+  }
+});
+$("#btn-clear").addEventListener("click", ()=>{ if(confirm("画面の入力を消します。よろしいですか？")) fill(null); });
+
+function monthRecords(ym, site){
+  return Object.values(records).filter(r=> r.date && r.date.slice(0,7)===ym && (site==="__all" || r.site===site));
+}
+let MSTATE = null;
+
+async function runMonthly(){
+  const ym = $("#m-month").value, site = $("#m-site").value;
+  if(FS.dir){ $("#m-out").innerHTML = `<div class="block"><div class="loading">共有フォルダから読み込んでいます…</div></div>`; await syncFromFolder(ym); }
+  const recs = monthRecords(ym, site).sort((a,b)=> a.date<b.date?-1:1);
+  if(!recs.length){ $("#m-out").innerHTML = `<div class="block"><div class="block-bd">この月のデータはまだありません。入力画面から日計表を保存すると、ここに集計が出ます。</div></div>`; MSTATE=null; return; }
+
+  const zoneTotals = {}; CARRIERS.forEach(c=> zoneTotals[c.id]={});
+  const ship = {}, aux = {}, byDay = {};
+  const setCells = {};     // "企業||作業内容" -> {company, work, sets}
+  let carrierQty=0, sheetQty=0, ovsQty=0, chtQty=0, payTotal=0;
+
+  recs.forEach(r=>{
+    CARRIERS.forEach(c=>{
+      const o = (r.carriers && r.carriers[c.id]) || {};
+      Object.keys(o).forEach(z=> zoneTotals[c.id][z] = (zoneTotals[c.id][z]||0) + num(o[z]));
+    });
+    const dayCarrier = recCarrierBoxes(r);
+    carrierQty += dayCarrier;
+
+    const gs = n => ship[n] || (ship[n]={cases:0,picks:0,qty:0,kinds:{},pay:0});
+    const ga = n => aux[n]  || (aux[n] ={sets:0,setpicks:0,inPallets:0,inBoxes:0,inPieces:0,retBoxes:0,retPieces:0});
+    let daySheet = 0;
+    (r.ship||[]).forEach(x=>{
+      const n=x.company||"（未記入）", k=x.kind||"LOGILESS未導入", q=num(x.qty), c=gs(n);
+      c.cases+=num(x.cases); c.picks+=num(x.picks); c.qty+=q;
+      c.kinds[k]=(c.kinds[k]||0)+q;
+      if(k==="海外出荷") ovsQty+=q;
+      if(isCharter(k)){ chtQty+=q; c.pay+=num(x.pay); payTotal+=num(x.pay); }
+      daySheet += q;
+    });
+    sheetQty += daySheet;
+    (r.set||[]).forEach(x=>{
+      const cn = x.company||"（未記入）", wn = x.work || x.product || "（未選択）", q = num(x.sets);
+      const c = ga(cn); c.sets += q; c.setpicks += num(x.picks);
+      const k2 = cn+"||"+wn;
+      if(!setCells[k2]) setCells[k2] = {company:cn, work:wn, sets:0};
+      setCells[k2].sets += q;
+    });
+    (r.in ||[]).forEach(x=>{ const c=ga(x.company||"（未記入）"); c.inPallets+=num(x.pallets); c.inBoxes+=num(x.boxes); c.inPieces+=num(x.pieces); });
+    (r.ret||[]).forEach(x=>{ const c=ga(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces); });
+    byDay[r.date] = {carrier:dayCarrier, sheet:daySheet};
+  });
+
+  MSTATE = {ym, site, aux, setCells};
+  const shipRows = Object.keys(ship).sort((a,b)=> ship[b].qty - ship[a].qty);
+  const days = Object.keys(byDay).sort();
+  const maxDay = Math.max(1, ...days.map(d=> byDay[d].carrier + byDay[d].sheet));
+  const totalQty = carrierQty + sheetQty;
+  const seinoPallets = zoneTotals.seino.pallets || 0;
+
+  $("#m-out").innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><div class="k">出荷個口（01＋02）</div><div class="v">${totalQty.toLocaleString()}<small>個口</small></div></div>
+    <div class="kpi" id="kpi-bill"><div class="k">付帯作業の請求額</div><div class="v">¥0</div></div>
+    <div class="kpi"><div class="k">チャーター便 支払</div><div class="v" style="font-size:24px">${yen(payTotal)}</div></div>
+    <div class="kpi"><div class="k">対象</div><div class="v" style="font-size:20px;font-family:var(--fs-jp)">${esc(ym)}／${site==="__all"?"全拠点":esc(site)}</div></div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">内訳</span><h2>出荷個口の内訳</h2></div>
+    <div class="block-bd"><div class="split">
+      <div class="splitcard"><div class="k">01　運送会社</div><div class="v">${carrierQty.toLocaleString()}</div>
+        <div class="s">宅配便の最終出荷合計＋西濃の箱数${seinoPallets?`<br>西濃パレット ${seinoPallets.toLocaleString()} 枚`:""}</div></div>
+      <div class="splitcard"><div class="k">02　日計表の明細</div><div class="v">${sheetQty.toLocaleString()}</div>
+        <div class="s">チャーター ${chtQty.toLocaleString()}／海外 ${ovsQty.toLocaleString()}／LOGILESS未導入 ${(sheetQty-chtQty-ovsQty).toLocaleString()}</div></div>
+      <div class="splitcard sum"><div class="k">合計</div><div class="v">${totalQty.toLocaleString()}</div>
+        <div class="s">01と02は重複しません</div></div>
+    </div></div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">02</span><h2>出荷（企業別）</h2><span class="hint">出荷に請求額はつきません</span></div>
+    <div class="block-bd tblwrap">
+      <table class="data">
+        <thead><tr><th>企業名</th><th>区分</th><th class="n">出荷件数</th><th class="n">ピック数</th><th class="n">出荷個口</th><th class="n">チャーター支払</th></tr></thead>
+        <tbody>${shipRows.map(n=>{
+          const c=ship[n], ks=Object.keys(c.kinds).filter(k=>c.kinds[k]);
+          return `<tr><td>${esc(n)}</td>
+            <td>${ks.length? ks.map(k=>`<span class="kindtag ${kindCls(k)}">${esc(k)}${ks.length>1?" "+c.kinds[k]:""}</span>`).join(" ") : "—"}</td>
+            <td class="n">${c.cases.toLocaleString()}</td><td class="n">${c.picks.toLocaleString()}</td>
+            <td class="n"><b>${c.qty.toLocaleString()}</b></td>
+            <td class="n">${c.pay? yen(c.pay) : "—"}</td></tr>`;
+        }).join("")}</tbody>
+        <tfoot><tr><td>合計</td><td></td>
+          <td class="n">${shipRows.reduce((a,n)=>a+ship[n].cases,0).toLocaleString()}</td>
+          <td class="n">${shipRows.reduce((a,n)=>a+ship[n].picks,0).toLocaleString()}</td>
+          <td class="n">${sheetQty.toLocaleString()}</td>
+          <td class="n">${yen(payTotal)}</td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">請求 1</span><h2>セット組の単価</h2><span class="hint">企業と作業内容の組み合わせごと</span></div>
+    <div class="block-bd">
+      <div class="bulkbar">
+        <button class="btn btn-ghost btn-sm" id="work-carry">先月の単価を引き継ぐ</button>
+        <span style="font-size:15px;color:var(--ink-2)">先月と同じ企業・同じ作業内容のところだけ、単価が入ります</span>
+      </div>
+      <div class="tblwrap" id="work-table"></div>
+      <div class="note">セット組の単価は<b>企業と作業内容の組み合わせ</b>ごとに決まります。同じ「パネル入れ替え」でも企業がちがえば別の単価を入れられます。<b>セット数 × 単価</b>で計算します。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">請求 2</span><h2>企業ごとの請求額</h2><span class="hint">入荷・返品の単価は企業ごと</span></div>
+    <div class="block-bd">
+      <div class="bulkbar">
+        <div class="field"><label>入荷（1箱）</label><input class="num" inputmode="numeric" id="bulk-pi" placeholder="0"></div>
+        <div class="field"><label>返品（1箱）</label><input class="num" inputmode="numeric" id="bulk-pr" placeholder="0"></div>
+        <button class="btn btn-ghost btn-sm" id="bulk-apply">すべての企業に反映</button>
+        <button class="btn btn-ghost btn-sm" id="comp-carry">先月の単価を引き継ぐ</button>
+      </div>
+      <div class="tblwrap" id="comp-table"></div>
+      <div class="note">単価はこの月だけに使われます。翌月はまた入力してください。セット組の金額は、上の「セット組の単価」から自動で計算されます。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">運送</span><h2>運送会社ごとの数量</h2></div>
+    <div class="block-bd tblwrap">
+      <table class="data">
+        <thead><tr><th>宅配便</th><th class="n">常温</th><th class="n">JITBOX</th><th class="n">冷凍</th><th class="n">冷蔵</th><th class="n">最終出荷合計</th></tr></thead>
+        <tbody>${CARRIERS.filter(c=>c.type==="zone").map(c=>{const z=zoneTotals[c.id];return `<tr>
+          <td>${c.name}</td><td class="n">${(z.normal||0).toLocaleString()}</td>
+          <td class="n">${c.id==="yamato"? (z.jitbox||0).toLocaleString() : "—"}</td>
+          <td class="n">${(z.frozen||0).toLocaleString()}</td><td class="n">${(z.chilled||0).toLocaleString()}</td>
+          <td class="n"><b>${(z.final||0).toLocaleString()}</b></td></tr>`;}).join("")}</tbody>
+      </table>
+      <table class="data" style="margin-top:16px">
+        <thead><tr><th>路線便</th><th class="n">パレット数</th><th class="n">箱数</th></tr></thead>
+        <tbody><tr><td>西濃運輸（路線便）</td>
+          <td class="n">${seinoPallets.toLocaleString()}</td>
+          <td class="n"><b>${(zoneTotals.seino.boxes||0).toLocaleString()}</b></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">日別</span><h2>日ごとの出荷個口</h2></div>
+    <div class="block-bd tblwrap">
+      <table class="data">
+        <thead><tr><th>日付</th><th class="n">01 運送会社</th><th class="n">02 日計表</th><th class="n">合計</th><th>推移</th></tr></thead>
+        <tbody>${days.map(d=>{const v=byDay[d];const t=v.carrier+v.sheet;const dt=new Date(d+"T00:00:00");return `<tr>
+          <td>${d.slice(5).replace("-","/")}（${WD[dt.getDay()]}）</td>
+          <td class="n">${v.carrier.toLocaleString()}</td><td class="n">${v.sheet.toLocaleString()}</td>
+          <td class="n"><b>${t.toLocaleString()}</b></td>
+          <td><div class="barcell"><div class="bar" style="width:${Math.round(t/maxDay*160)}px"></div></div></td>
+        </tr>`;}).join("")}</tbody>
+      </table>
+    </div>
+  </div>`;
+
+  renderAux();
+  $("#bulk-apply").addEventListener("click", ()=>{
+    const pi=num($("#bulk-pi").value), pr=num($("#bulk-pr").value);
+    Object.keys(MSTATE.aux).forEach(n=>{ setRateComp(MSTATE.ym,n,"pi",pi); setRateComp(MSTATE.ym,n,"pr",pr); });
+    renderAux(); toast("すべての企業に反映しました");
+  });
+  $("#work-carry").addEventListener("click", ()=>{
+    const pm = prevMonth(MSTATE.ym); let n=0;
+    Object.values(MSTATE.setCells).forEach(c=>{
+      const v = rateWork(pm, c.company, c.work);
+      if(v){ setRateWork(MSTATE.ym, c.company, c.work, v); n++; }
+    });
+    renderAux(); toast(n? n+"件に先月の単価を入れました" : "先月の単価が見つかりませんでした", !n);
+  });
+  $("#comp-carry").addEventListener("click", ()=>{
+    const pm = prevMonth(MSTATE.ym); let n=0;
+    Object.keys(MSTATE.aux).forEach(name=>{
+      const r = rateComp(pm, name);
+      if(r.pi || r.pr){ setRateComp(MSTATE.ym,name,"pi",r.pi); setRateComp(MSTATE.ym,name,"pr",r.pr); n++; }
+    });
+    renderAux(); toast(n? n+"社に先月の単価を入れました" : "先月の単価が見つかりませんでした", !n);
+  });
+}
+
+function setAmtOf(ym, comp){
+  return Object.values(MSTATE.setCells||{})
+    .filter(c=> c.company===comp)
+    .reduce((a,c)=> a + c.sets*rateWork(ym, c.company, c.work), 0);
+}
+
+function renderAux(){
+  if(!MSTATE) return;
+  const {ym, aux, setCells} = MSTATE;
+
+  /* --- 表1：セット組（企業 × 作業内容） --- */
+  const cells = Object.keys(setCells).sort((a,b)=>{
+    const A=setCells[a], B=setCells[b];
+    return A.company===B.company ? (A.work<B.work?-1:1) : (A.company<B.company?-1:1);
+  });
+  $("#work-table").innerHTML = cells.length ? `<table class="data">
+    <thead><tr><th>企業名</th><th>作業内容</th><th class="n">セット数</th><th class="n">単価（1セット）</th><th class="n">金額</th></tr></thead>
+    <tbody>${cells.map((k2,i)=>{
+      const c = setCells[k2], prev = i>0 ? setCells[cells[i-1]] : null;
+      const same = prev && prev.company===c.company;
+      const rv = rateWork(ym, c.company, c.work);
+      return `<tr data-cell="${esc(k2)}">
+        <td>${same? '<span style="color:var(--ink-3)">〃</span>' : esc(c.company)+(isLogiless(c.company)?' <span class="pill y">LOGILESS済</span>':'')}</td>
+        <td><b>${esc(c.work)}</b></td>
+        <td class="n">${c.sets.toLocaleString()}</td>
+        <td class="n"><input class="rate" inputmode="numeric" value="${rv||""}" placeholder="0"></td>
+        <td class="n" data-wamt><b>${yen(c.sets*rv)}</b></td></tr>`;
+    }).join("")}</tbody>
+    <tfoot><tr><td>合計</td><td></td>
+      <td class="n">${cells.reduce((a,k2)=>a+setCells[k2].sets,0).toLocaleString()}</td><td></td>
+      <td class="n" data-tot="work"></td></tr></tfoot></table>`
+    : `<div style="padding:14px;color:var(--ink-2)">この月はセット組の記録がありません。</div>`;
+
+  /* --- 表2：企業ごとの請求額 --- */
+  const names = Object.keys(aux).sort();
+  $("#comp-table").innerHTML = names.length ? `<table class="data">
+    <thead><tr><th rowspan="2">企業名</th><th class="n" rowspan="2">セット組 金額</th>
+      <th class="n" colspan="3">入荷</th><th class="n" colspan="3">返品</th><th class="n" rowspan="2">請求額</th></tr>
+    <tr><th class="n">箱数</th><th class="n">単価</th><th class="n">金額</th>
+        <th class="n">箱数</th><th class="n">単価</th><th class="n">金額</th></tr></thead>
+    <tbody>${names.map(n=>{
+      const a=aux[n], r=rateComp(ym,n), sa=setAmtOf(ym,n), i=a.inBoxes*r.pi, p=a.retBoxes*r.pr;
+      return `<tr data-comp="${esc(n)}">
+        <td>${esc(n)}${isLogiless(n)?' <span class="pill y">LOGILESS済</span>':''}</td>
+        <td class="n" data-amt="set">${yen(sa)}</td>
+        <td class="n">${a.inBoxes.toLocaleString()}</td>
+        <td class="n"><input class="rate" inputmode="numeric" data-f="pi" value="${r.pi||""}" placeholder="0"></td>
+        <td class="n" data-amt="pi">${yen(i)}</td>
+        <td class="n">${a.retBoxes.toLocaleString()}</td>
+        <td class="n"><input class="rate" inputmode="numeric" data-f="pr" value="${r.pr||""}" placeholder="0"></td>
+        <td class="n" data-amt="pr">${yen(p)}</td>
+        <td class="n" data-amt="sum"><b>${yen(sa+i+p)}</b></td></tr>`;
+    }).join("")}</tbody>
+    <tfoot><tr><td>合計</td><td class="n" data-tot="set"></td>
+      <td class="n">${names.reduce((a,n)=>a+aux[n].inBoxes,0).toLocaleString()}</td><td></td><td class="n" data-tot="pi"></td>
+      <td class="n">${names.reduce((a,n)=>a+aux[n].retBoxes,0).toLocaleString()}</td><td></td><td class="n" data-tot="pr"></td>
+      <td class="n" data-tot="sum"></td></tr></tfoot></table>`
+    : `<div style="padding:14px;color:var(--ink-2)">この月は付帯作業の記録がありません。</div>`;
+
+  $$("#work-table input.rate").forEach(inp=> inp.addEventListener("input", ()=>{
+    const tr = inp.closest("tr"), c = MSTATE.setCells[tr.dataset.cell];
+    setRateWork(ym, c.company, c.work, inp.value);
+    updateWorkRow(tr);
+    $$("#comp-table tbody tr").forEach(updateCompRow);
+    updateAuxTotals();
+  }));
+  $$("#comp-table input.rate").forEach(inp=> inp.addEventListener("input", ()=>{
+    const tr = inp.closest("tr");
+    setRateComp(ym, tr.dataset.comp, inp.dataset.f, inp.value);
+    updateCompRow(tr); updateAuxTotals();
+  }));
+  updateAuxTotals();
+}
+function updateWorkRow(tr){
+  const c = MSTATE.setCells[tr.dataset.cell];
+  $("[data-wamt]",tr).innerHTML = "<b>"+yen(c.sets*rateWork(MSTATE.ym, c.company, c.work))+"</b>";
+}
+function updateCompRow(tr){
+  const n = tr.dataset.comp, a = MSTATE.aux[n], r = rateComp(MSTATE.ym,n);
+  const sa = setAmtOf(MSTATE.ym,n), i = a.inBoxes*r.pi, p = a.retBoxes*r.pr;
+  $('[data-amt="set"]',tr).textContent = yen(sa);
+  $('[data-amt="pi"]',tr).textContent  = yen(i);
+  $('[data-amt="pr"]',tr).textContent  = yen(p);
+  $('[data-amt="sum"]',tr).innerHTML   = "<b>"+yen(sa+i+p)+"</b>";
+}
+function updateAuxTotals(){
+  const ym = MSTATE.ym;
+  const wTot = Object.values(MSTATE.setCells||{}).reduce((a,c)=> a + c.sets*rateWork(ym,c.company,c.work), 0);
+  const t = {set:0, pi:0, pr:0};
+  Object.keys(MSTATE.aux).forEach(n=>{
+    const a=MSTATE.aux[n], r=rateComp(ym,n);
+    t.set += setAmtOf(ym,n); t.pi += a.inBoxes*r.pi; t.pr += a.retBoxes*r.pr;
+  });
+  const sum = t.set + t.pi + t.pr;
+  const put = (sel,v)=>{ const el=$(sel); if(el) el.textContent = yen(v); };
+  put('#work-table [data-tot="work"]', wTot);
+  put('#comp-table [data-tot="set"]', t.set);
+  put('#comp-table [data-tot="pi"]', t.pi);
+  put('#comp-table [data-tot="pr"]', t.pr);
+  put('#comp-table [data-tot="sum"]', sum);
+  const k=$("#kpi-bill .v"); if(k) k.textContent = yen(sum);
+}
+
+function download(name, text){
+  const blob = new Blob(["\ufeff"+text], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+const q = v => `"${String(v==null?"":v).replace(/"/g,'""')}"`;
+
+function csvCompanies(){
+  const ym=$("#m-month").value, site=$("#m-site").value;
+  const recs = monthRecords(ym,site);
+  const m={}; let seinoPallets=0, carrierBoxes=0;
+  const g=n=> m[n]||(m[n]={cases:0,picks:0,qty:0,cht:0,ovs:0,dom:0,pay:0,sets:0,setAmt:0,inPallets:0,inBoxes:0,inPieces:0,retBoxes:0,retPieces:0});
+  const wcells={};
+  recs.forEach(r=>{
+    carrierBoxes += recCarrierBoxes(r);
+    seinoPallets += num(((r.carriers||{}).seino||{}).pallets);
+    (r.ship||[]).forEach(x=>{ const n=x.company||"（未記入）",k=x.kind||"LOGILESS未導入",qy=num(x.qty),c=g(n);
+      c.cases+=num(x.cases); c.picks+=num(x.picks); c.qty+=qy;
+      if(isCharter(k)){ c.cht+=qy; c.pay+=num(x.pay); } else if(k==="海外出荷") c.ovs+=qy; else c.dom+=qy; });
+    (r.set||[]).forEach(x=>{
+      const cn=x.company||"（未記入）", wn=x.work||x.product||"（未選択）", qy=num(x.sets);
+      g(cn).sets+=qy;
+      const kk=cn+"||"+wn;
+      if(!wcells[kk]) wcells[kk]={company:cn,work:wn,sets:0};
+      wcells[kk].sets+=qy;
+    });
+    (r.in ||[]).forEach(x=>{ const c=g(x.company||"（未記入）"); c.inPallets+=num(x.pallets); c.inBoxes+=num(x.boxes); c.inPieces+=num(x.pieces); });
+    (r.ret||[]).forEach(x=>{ const c=g(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces); });
+  });
+  Object.values(wcells).forEach(c=>{ m[c.company].setAmt += c.sets*rateWork(ym,c.company,c.work); });
+
+  const head=["対象月","拠点","企業名","LOGILESS","出荷件数","ピック数","出荷個口(チャーター)","出荷個口(海外)","出荷個口(LOGILESS未導入)","出荷個口(計)","チャーター支払",
+    "セット数","セット組金額","入荷パレット数","入荷箱数","入荷ピース数","入荷単価","入荷金額","返品箱数","返品ピース数","返品単価","返品金額","付帯作業 請求額"];
+  const lines=[head.map(q).join(",")];
+  Object.keys(m).sort().forEach(n=>{
+    const c=m[n], r=rateComp(ym,n);
+    const i=c.inBoxes*r.pi, p=c.retBoxes*r.pr;
+    lines.push([ym, site==="__all"?"全拠点":site, n, isLogiless(n)?"済":"未",
+      c.cases,c.picks,c.cht,c.ovs,c.dom,c.qty,Math.round(c.pay),
+      c.sets,Math.round(c.setAmt), c.inPallets,c.inBoxes,c.inPieces,r.pi,Math.round(i),
+      c.retBoxes,c.retPieces,r.pr,Math.round(p), Math.round(c.setAmt+i+p)].map(q).join(","));
+  });
+  lines.push("");
+  lines.push(["【セット組の内訳】企業名","作業内容","セット数","単価","金額"].map(q).join(","));
+  Object.values(wcells).sort((a,b)=> a.company===b.company ? (a.work<b.work?-1:1) : (a.company<b.company?-1:1))
+    .forEach(c=>{ const rv=rateWork(ym,c.company,c.work);
+      lines.push([c.company,c.work,c.sets,rv,Math.round(c.sets*rv)].map(q).join(",")); });
+  lines.push("");
+  lines.push(["【参考】01 運送会社の箱数", carrierBoxes].map(q).join(","));
+  lines.push(["【参考】西濃 パレット数", seinoPallets].map(q).join(","));
+  download(`日計表_企業別_${ym}.csv`, lines.join("\r\n"));
+}
+
+function csvRaw(){
+  const ym=$("#m-month").value, site=$("#m-site").value;
+  const recs = monthRecords(ym,site).sort((a,b)=> a.date<b.date?-1:1);
+  const head=["日付","年月","曜日","拠点","記入者","ブロック","区分・作業内容","企業名","件数","ピック数","出荷個数",
+    "セット数","パレット数","箱数","ピース数","商品名・詳細","手配会社","チャーター支払","送料負担","着払い","単価","金額","備考"];
+  const lines=[head.map(q).join(",")];
+  const push=a=>lines.push(a.map(q).join(","));
+  recs.forEach(r=>{
+    const w = WD[new Date(r.date+"T00:00:00").getDay()], y2 = r.date.slice(0,7), rt = n=>rateComp(y2,n||"");
+    (r.ship||[]).forEach(x=> push([r.date,y2,w,r.site,r.writer,"出荷",x.kind||"",x.company,x.cases,x.picks,x.qty,
+      "","","","",x.detail,x.agent||"",x.pay||"","","","","",""]));
+    (r.set ||[]).forEach(x=>{ const wn=x.work||x.product||"", p=rateWork(y2,x.company||"",wn);
+      push([r.date,y2,w,r.site,r.writer,"セット組",wn,x.company,"",x.picks,"",x.sets,"","","",wn,"","","","",p,num(x.sets)*p,x.note]); });
+    (r.in  ||[]).forEach(x=>{ const p=rt(x.company).pi;
+      push([r.date,y2,w,r.site,r.writer,"入荷・入庫","",x.company,"","","","",x.pallets,x.boxes,x.pieces,x.product,"","","","",p,num(x.boxes)*p,x.note]); });
+    (r.ret ||[]).forEach(x=>{ const p=rt(x.company).pr;
+      push([r.date,y2,w,r.site,r.writer,"返品","",x.company,"","","","","",x.boxes,x.pieces,x.product,"","",x.payer,x.cod?("着払い "+(x.codNote||"")):"",p,num(x.boxes)*p,""]); });
+    CARRIERS.forEach(c=>{ const o=((r.carriers||{})[c.id])||{};
+      if(!Object.values(o).some(v=>num(v))) return;
+      if(c.type==="pallet") push([r.date,y2,w,r.site,r.writer,"運送会社","",c.name,"","","","",o.pallets||0,o.boxes||0,"","","","","","","","",""]);
+      else push([r.date,y2,w,r.site,r.writer,"運送会社","",c.name,"","","","","",o.final||0,"",
+        `常温${o.normal||0}/JITBOX${o.jitbox||0}/冷凍${o.frozen||0}/冷蔵${o.chilled||0}`,"","","","","","",""]);
+    });
+    if(r.memo) push([r.date,y2,w,r.site,r.writer,"備考","","","","","","","","","","","","","","","","",r.memo]);
+  });
+  download(`日計表_明細_${ym}.csv`, lines.join("\r\n"));
+}
+
+async function runStatus(){
+  const ym = $("#s-month").value;
+  if(FS.dir){ $("#s-out").innerHTML = `<div class="block"><div class="loading">共有フォルダから読み込んでいます…</div></div>`; await syncFromFolder(ym); }
+  const [y,m] = ym.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate(), today = todayStr();
+  let missTotal = 0;
+  const html = cfg.sites.map(site=>{
+    let miss=[]; const chips=[];
+    for(let d=1; d<=last; d++){
+      const ds = `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      const dt = new Date(ds+"T00:00:00");
+      const done = !!records[key(ds,site)], future = ds > today, off = isOffDay(ds);
+      const cls = done ? "done" : (future ? "future" : (off ? "off" : "miss"));
+      if(!done && !future && !off) miss.push(d);
+      const wcls = dt.getDay()===0?" sun":(dt.getDay()===6?" sat":"");
+      chips.push(`<button class="chip ${cls}${wcls}" data-d="${ds}" data-s="${esc(site)}">
+        <div class="d">${d}</div><div class="w">${WD[dt.getDay()]}</div>
+        <div class="m">${done?"記入済":(future?"—":(off?"休み":"未記入"))}</div></button>`);
+    }
+    missTotal += miss.length;
+    return `<div class="block">
+      <div class="block-hd"><span class="block-no">${esc(site)}</span><h2>${miss.length? `未記入 ${miss.length}日` : "記入もれなし"}</h2>
+        <span class="hint">${miss.length? miss.join("・")+"日" : "✓"}</span></div>
+      <div class="block-bd"><div class="chipstrip">${chips.join("")}</div></div></div>`;
+  }).join("");
+
+  $("#s-out").innerHTML = `
+    <div class="kpis"><div class="kpi" style="border-left-color:${missTotal?"var(--alert)":"var(--ok)"}">
+      <div class="k">${esc(ym)} の未記入</div><div class="v">${missTotal}<small>日</small></div></div></div>
+    <div class="legend"><span class="l-done"><i></i>記入済</span><span class="l-miss"><i></i>未記入</span><span class="l-fut"><i></i>休み・これから</span></div>
+    ${html}`;
+  $$("#s-out .chip").forEach(b=> b.addEventListener("click", ()=>{
+    $("#f-date").value = b.dataset.d; $("#f-site").value = b.dataset.s;
+    loadDay(); switchView("input"); window.scrollTo(0,0);
+  }));
+}
+
+function renderMissAlert(){
+  const site = $("#f-site").value, today = todayStr(), miss = [];
+  for(let i=1; i<=14; i++){
+    const d = new Date(today+"T00:00:00"); d.setDate(d.getDate()-i);
+    const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    if(isOffDay(ds)) continue;
+    if(!records[key(ds,site)]) miss.push(ds);
+  }
+  const box = $("#miss-alert");
+  if(!miss.length){ box.innerHTML=""; return; }
+  box.innerHTML = `<div class="alertbar">
+    <b>${esc(site)}：直近2週間で ${miss.length}日分が未記入です。</b>
+    <div>日付を押すとその日の入力画面に切り替わります。</div>
+    <div class="days">${miss.reverse().map(ds=>{const dt=new Date(ds+"T00:00:00");
+      return `<button data-jump="${ds}">${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）</button>`;}).join("")}</div></div>`;
+  $$("[data-jump]", box).forEach(b=> b.addEventListener("click", ()=>{ $("#f-date").value=b.dataset.jump; loadDay(); window.scrollTo(0,0); }));
+}
+
+function renderOffDays(){
+  $("#offdays").innerHTML = WD.map((w,i)=>
+    `<label><input type="checkbox" data-wd="${i}"${(cfg.offDays||[]).indexOf(i)>=0?" checked":""}>${w}曜</label>`).join("");
+  $$("[data-wd]").forEach(c=> c.addEventListener("change", ()=>{
+    cfg.offDays = $$("[data-wd]").filter(x=>x.checked).map(x=>+x.dataset.wd);
+    saveCfg(); renderMissAlert();
+  }));
+}
+function renderSites(){
+  $("#sites-list").innerHTML = cfg.sites.map((s,i)=>`
+    <div class="setrow" style="grid-template-columns:1fr 44px">
+      <input type="text" value="${esc(s)}" data-si="${i}">
+      <button class="del" data-sdel="${i}" aria-label="削除">✕</button></div>`).join("");
+  $$("[data-si]").forEach(i=> i.addEventListener("change", ()=>{ cfg.sites[+i.dataset.si]=i.value.trim()||"拠点"; saveCfg(); renderSiteSelects(); }));
+  $$("[data-sdel]").forEach(b=> b.addEventListener("click", ()=>{
+    if(cfg.sites.length<=1){ toast("拠点は1つ以上必要です", true); return; }
+    cfg.sites.splice(+b.dataset.sdel,1); saveCfg(); renderSites(); renderSiteSelects();
+  }));
+}
+function renderWorks(){
+  cfg.works = cfg.works || [];
+  $("#works-list").innerHTML = cfg.works.map((w,i)=>`
+    <div class="setrow" style="grid-template-columns:1fr 44px">
+      <input type="text" value="${esc(w)}" data-wi="${i}">
+      <button class="del" data-wdel="${i}" aria-label="削除">✕</button></div>`).join("");
+  $$("[data-wi]").forEach(i=> i.addEventListener("change", ()=>{
+    cfg.works[+i.dataset.wi] = i.value.trim(); saveCfg(); refreshWorkSelects();
+  }));
+  $$("[data-wdel]").forEach(b=> b.addEventListener("click", ()=>{
+    if(!confirm("この作業内容を消しますか？（保存済みのデータは消えません）")) return;
+    cfg.works.splice(+b.dataset.wdel,1); saveCfg(); renderWorks(); refreshWorkSelects();
+  }));
+}
+function renderComps(){
+  $("#comp-list").innerHTML = cfg.companies.map((c,i)=>`
+    <div class="setrow">
+      <div class="cell"><input type="text" value="${esc(c.n)}" data-ci="${i}" data-f="n"></div>
+      <div class="cell"><select data-ci="${i}" data-f="l"><option value="1"${c.l?" selected":""}>LOGILESS済</option><option value="0"${!c.l?" selected":""}>LOGILESS未</option></select></div>
+      <button class="del" data-cdel="${i}" aria-label="削除">✕</button></div>`).join("");
+  $$("[data-ci]").forEach(el=> el.addEventListener("change", ()=>{
+    const c = cfg.companies[+el.dataset.ci], f = el.dataset.f;
+    c[f] = (f==="n") ? el.value.trim() : +el.value;
+    saveCfg(); refreshCompanySelects();
+  }));
+  $$("[data-cdel]").forEach(b=> b.addEventListener("click", ()=>{
+    if(!confirm("この企業を消しますか？（保存済みのデータは消えません）")) return;
+    cfg.companies.splice(+b.dataset.cdel,1); saveCfg(); renderComps(); refreshCompanySelects();
+  }));
+}
+function refreshCompanySelects(){
+  $$(".datarow").forEach(r=>{
+    const sel=$('[data-k="company"]',r); if(!sel) return;
+    const cur=sel.value, free=$('[data-k="companyFree"]',r).value;
+    sel.innerHTML = compOptions();
+    if(Array.from(sel.options).some(o=>o.value===cur)) sel.value=cur;
+    else if(free) sel.value="__other";
+  });
+  refreshWorkSelects();
+  recalc();
+}
+function refreshWorkSelects(){
+  $$('#rows-set .datarow').forEach(r=>{
+    const sel=$('[data-k="work"]',r); if(!sel) return;
+    const cur=sel.value, free=$('[data-k="workFree"]',r).value;
+    sel.innerHTML = workOptions();
+    if(Array.from(sel.options).some(o=>o.value===cur)) sel.value=cur;
+    else if(free) sel.value="__other";
+  });
+}
+function renderSiteSelects(){
+  const cur = $("#f-site").value;
+  $("#f-site").innerHTML = cfg.sites.map(s=>`<option>${esc(s)}</option>`).join("");
+  if(cfg.sites.includes(cur)) $("#f-site").value = cur;
+  const curM = $("#m-site").value;
+  $("#m-site").innerHTML = `<option value="__all">全拠点</option>` + cfg.sites.map(s=>`<option>${esc(s)}</option>`).join("");
+  if(curM) $("#m-site").value = curM;
+}
+
+function switchView(v){
+  $$(".tab").forEach(t=> t.setAttribute("aria-selected", String(t.dataset.view===v)));
+  $$(".view").forEach(s=> s.classList.toggle("active", s.id==="view-"+v));
+  $("#savebar").style.display = v==="input" ? "" : "none";
+  $("#ctxbar").style.display  = v==="input" ? "" : "none";
+  if(v==="monthly") runMonthly();
+  if(v==="status")  runStatus();
+}
+$$(".tab").forEach(t=> t.addEventListener("click", ()=> switchView(t.dataset.view)));
+
+$$("[data-add]").forEach(b=> b.addEventListener("click", ()=>{ const r=addRow(b.dataset.add); const f=$("select,input",r); if(f) f.focus(); }));
+$("#add-site").addEventListener("click", ()=>{ cfg.sites.push("新しい拠点"); saveCfg(); renderSites(); renderSiteSelects(); });
+$("#add-comp").addEventListener("click", ()=>{ cfg.companies.push({n:"",l:0}); saveCfg(); renderComps(); });
+$("#add-work").addEventListener("click", ()=>{ cfg.works=cfg.works||[]; cfg.works.push(""); saveCfg(); renderWorks(); });
+$("#f-date").addEventListener("change", loadDay);
+$("#f-site").addEventListener("change", loadDay);
+$("#f-writer").addEventListener("input", recalc);
+$("#m-run").addEventListener("click", runMonthly);
+$("#s-run").addEventListener("click", runStatus);
+$("#m-csv-comp").addEventListener("click", csvCompanies);
+$("#m-csv-raw").addEventListener("click", csvRaw);
+
+$("#fs-pick").addEventListener("click", connectFolder);
+$("#perm-connect").addEventListener("click", connectFolder);
+$("#perm-later").addEventListener("click", ()=>{ permDismissed = true; renderPermBar(); });
+$("#install-go").addEventListener("click", doInstall);
+$("#install-go2").addEventListener("click", doInstall);
+$("#install-later").addEventListener("click", ()=>{ installDismissed = true; renderInstall(); });
+$("#fs-sync").addEventListener("click", async ()=>{
+  if(!FS.dir){ toast("先に共有フォルダを選んでください", true); return; }
+  const n = await syncFromFolder(""); loadDay();
+  toast(n ? n+"日分を読み込みました" : "新しいデータはありませんでした");
+});
+$("#fs-push").addEventListener("click", pushAllToFolder);
+$("#fs-off").addEventListener("click", async ()=>{
+  FS.dir=null; FS.pending=null; dirty=[]; saveDirty(); await idbSet("dir",null);
+  permDismissed = true; fsStatus(); toast("共有フォルダを使わない設定にしました");
+});
+
+$("#x-export").addEventListener("click", ()=>{
+  const ym = $("#x-month").value || monthStr();
+  const list = Object.values(records).filter(r=> r.date && r.date.slice(0,7)===ym);
+  if(!list.length){ toast("この月のデータがありません", true); return; }
+  const payload = {records:list, rates:{}};
+  payload.rates[ym] = rates[ym] || {};
+  const blob = new Blob([JSON.stringify(payload,null,1)], {type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `日計表データ_${ym}_${$("#f-site").value}.json`; a.click();
+  toast(list.length+"日分を書き出しました");
+});
+$("#x-import").addEventListener("click", ()=> $("#x-file").click());
+$("#x-file").addEventListener("change", async e=>{
+  const files = Array.from(e.target.files||[]); if(!files.length) return;
+  const all=[]; let bad=0;
+  for(const f of files){
+    try{
+      const j = JSON.parse(await f.text());
+      if(j.rates) Object.keys(j.rates).forEach(k=>{ rates[k] = Object.assign(rates[k]||{}, j.rates[k]); });
+      const list = Array.isArray(j) ? j : (j.records ? (Array.isArray(j.records)? j.records : Object.values(j.records)) : [j]);
+      list.forEach(r=>{ if(r && r.date && r.site) all.push(r); });
+    }catch(err){ bad++; }
+  }
+  e.target.value = ""; saveRate();
+  if(!all.length){ toast(bad? "日計表のファイルではないようです" : "読み込める内容がありませんでした", true); return; }
+  const conflicts = all.filter(r=>{ const cur=records[key(r.date,r.site)]; return cur && String(r.ts||"") <= String(cur.ts||""); });
+  let force=false;
+  if(conflicts.length){
+    const list = conflicts.slice(0,8).map(r=> r.date+"（"+r.site+"）").join("\n");
+    force = confirm(conflicts.length+"日分は、いまこの端末にある内容のほうが新しい（または同じ）です。\n\n"+list
+      +(conflicts.length>8?"\n…ほか"+(conflicts.length-8)+"日分":"")
+      +"\n\n［OK］ファイルの内容で上書きする　※復元したいときはこちら\n［キャンセル］端末の内容をそのまま残す");
+  }
+  const n = mergeRecords(all, force); loadDay();
+  toast(n ? n+"日分を読み込みました" : "端末の内容のほうが新しいため、変更しませんでした", !n);
+});
+
+$("#b-export").addEventListener("click", ()=>{
+  const blob=new Blob([JSON.stringify({cfg,records,rates},null,1)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="日計表バックアップ_"+todayStr()+".json"; a.click();
+});
+$("#b-import").addEventListener("click", ()=> $("#b-file").click());
+$("#b-file").addEventListener("change", e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{
+      const j=JSON.parse(rd.result);
+      if(j.cfg){ cfg=j.cfg; saveCfg(); }
+      if(j.records){ records=Object.assign(records,j.records); saveRec(); }
+      if(j.rates){ rates=Object.assign(rates,j.rates); saveRate(); }
+      boot(); toast("読み込みました");
+    }catch(err){ toast("ファイルを読めませんでした", true); } };
+  rd.readAsText(f);
+});
+
+/* ============ アプリとしてのインストール ============ */
+let deferredPrompt = null, installDismissed = false;
+const isStandalone = () =>
+  window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+function renderInstall(){
+  const bar = $("#installbar"), blk = $("#install-block"), st = $("#install-state");
+  const done = isStandalone();
+  if(blk) blk.style.display = (deferredPrompt || done) ? "" : "none";
+  if(st){
+    if(done){
+      st.style.borderLeftColor="var(--ok)"; st.style.background="#eaf6ef";
+      st.innerHTML = "<b>アプリとして入っています。</b>共有フォルダの許可は、一度出せばそのまま覚えられます。";
+      $("#install-go2").style.display = "none";
+    } else if(deferredPrompt){
+      st.style.borderLeftColor="var(--signal)"; st.style.background="#eef4fb";
+      st.innerHTML = "まだブラウザのタブで開いています。アプリとして入れると、デスクトップにアイコンができ、共有フォルダの許可を毎回聞かれなくなります。";
+      $("#install-go2").style.display = "";
+    }
+  }
+  if(bar) bar.classList.toggle("show", !!deferredPrompt && !done && !installDismissed);
+}
+async function doInstall(){
+  if(!deferredPrompt){ toast("この画面からは入れられません。右上の「⋮」から「アプリをインストール」を選んでください", true); return; }
+  deferredPrompt.prompt();
+  try{ await deferredPrompt.userChoice; }catch(e){}
+  deferredPrompt = null; renderInstall();
+}
+window.addEventListener("beforeinstallprompt", e=>{ e.preventDefault(); deferredPrompt = e; renderInstall(); });
+window.addEventListener("appinstalled", ()=>{ deferredPrompt = null; toast("アプリとして入りました"); renderInstall(); });
+
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+
+function boot(){
+  migrateRates();
+  renderOffDays(); renderSites(); renderComps(); renderWorks(); renderSiteSelects();
+  buildCarriers();
+  if(!$("#f-date").value)  $("#f-date").value  = todayStr();
+  if(!$("#m-month").value) $("#m-month").value = monthStr();
+  if(!$("#s-month").value) $("#s-month").value = monthStr();
+  if(!$("#x-month").value) $("#x-month").value = monthStr();
+  const w = Store.get(K_WRITER); if(w && !$("#f-writer").value) $("#f-writer").value = w;
+  loadDay(); fsStatus(); renderInstall();
+  if(FS.supported){
+    FS.restore().then(async ok=>{
+      fsStatus();
+      if(ok){
+        const gotCfg = await pullSettings();
+        if(gotCfg){ renderOffDays(); renderSites(); renderComps(); renderWorks(); renderSiteSelects(); }
+        const sent = await flushDirty();
+        const n = await syncFromFolder(monthStr());
+        loadDay(); renderPermBar();
+        if(sent) toast("未送信 "+sent+"日分を共有フォルダに送りました");
+        else if(n) toast("共有フォルダから "+n+"日分を読み込みました");
+      }
+    });
+  }
+}
+boot();
+</script>
+</body>
+</html>
