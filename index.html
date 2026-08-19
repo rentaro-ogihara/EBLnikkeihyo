@@ -28,7 +28,9 @@ body{background:var(--paper);color:var(--ink);font-family:var(--fs-jp);
 button,input,select,textarea{font-family:inherit;font-size:18px;color:var(--ink)}
 :focus-visible{outline:3px solid var(--signal);outline-offset:2px}
 
-.topbar{position:sticky;top:0;z-index:40;background:var(--ink);color:#fff}
+.stickytop{position:sticky;top:0;z-index:40;transition:transform .22s ease}
+body.hide-top .stickytop{transform:translateY(-100%)}
+.topbar{background:var(--ink);color:#fff}
 .topbar-in{max-width:1320px;margin:0 auto;padding:11px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .brand{display:flex;align-items:baseline;gap:11px}
 .brand b{font-size:24px;letter-spacing:.14em}
@@ -38,7 +40,8 @@ button,input,select,textarea{font-family:inherit;font-size:18px;color:var(--ink)
 .tab[aria-selected="true"]{color:#fff;border-bottom-color:#d9e021;font-weight:700}
 .tab:hover{color:#fff}
 
-.ctx{position:sticky;top:0;z-index:30;background:#fff;border-bottom:3px solid var(--ink)}
+.ctx{background:#fff;border-bottom:3px solid var(--ink)}
+.ctx-summary{display:none}
 .ctx-in{max-width:1320px;margin:0 auto;padding:11px 16px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
 .field{display:flex;flex-direction:column;gap:5px}
 .field label{font-size:13px;letter-spacing:.1em;color:var(--ink-2);font-weight:700}
@@ -213,6 +216,8 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
 .alertbar .days button{border:2px solid var(--alert);background:#fff;color:var(--alert);border-radius:3px;padding:9px 13px;
   font-weight:700;cursor:pointer;font-family:var(--fs-num);min-height:48px;font-size:17px}
 .alertbar .days button:hover{background:var(--alert);color:#fff}
+.alertbar .days button.more{border-style:dashed;font-family:var(--fs-jp);font-weight:700}
+.alertbar .sub{font-size:15px;color:var(--ink-2);margin-top:2px}
 
 .setrow{display:grid;grid-template-columns:1fr 190px 44px;gap:10px;align-items:center;padding:9px 6px;border-bottom:1.5px solid var(--line-2)}
 .setrow input[type=text],.setrow select{border:2px solid var(--line);border-radius:var(--r);padding:10px;min-height:50px;width:100%;font-size:18px}
@@ -226,6 +231,60 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
 .loading{padding:30px;text-align:center;color:var(--ink-2);font-size:18px}
 .barcell{display:flex;align-items:center;gap:9px;min-width:180px}
 .bar{height:13px;background:var(--signal);border-radius:2px;min-width:2px}
+
+
+/* ============ スマホ（縦画面） ============ */
+@media (max-width:700px){
+  body{padding-bottom:96px}
+  .topbar-in{padding:6px 10px;gap:8px;flex-wrap:nowrap;align-items:center}
+  .brand{flex:0 0 auto}
+  .brand b{font-size:17px;letter-spacing:.08em}
+  .brand span{display:none}
+  .tabs{flex:1 1 auto;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;
+    scrollbar-width:none;justify-content:flex-end}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{padding:8px 11px;font-size:15px;border-bottom-width:3px;white-space:nowrap}
+
+  .ctx-summary{display:flex;width:100%;align-items:center;gap:10px;background:#fff;border:0;
+    border-bottom:3px solid var(--ink);padding:9px 12px;min-height:46px;cursor:pointer;text-align:left}
+  .ctx-summary .cs-text{flex:1;font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ctx-summary .cs-act{flex:0 0 auto;font-size:13px;font-weight:700;color:var(--signal);
+    border:2px solid var(--signal);border-radius:4px;padding:3px 9px}
+  .ctx-summary.need{background:#fdeee9}
+  .ctx-summary.need .cs-text{color:var(--alert)}
+  .ctx-in{display:none;padding:10px 12px}
+  body.ctx-open .ctx-in{display:flex}
+  .ctx-in .field{flex:1 1 100%}
+  .ctx .sync-chip{margin-left:0;flex:1 1 100%;justify-content:flex-start;padding-top:2px}
+
+  main{padding:12px 10px 30px}
+  .block{margin-bottom:14px}
+  .block-bd{padding:11px}
+  .block-hd{padding:10px 12px;gap:9px}
+  .block-hd h2{font-size:18px}
+  .block-hd .hint{margin-left:0;flex:1 1 100%;font-size:13px}
+
+  .savebar{padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+  .savebar-in{gap:9px;flex-wrap:nowrap;align-items:center}
+  .checks{min-width:0;flex:1 1 auto;font-size:14px;line-height:1.35;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  body.checks-open .checks{display:block;-webkit-line-clamp:unset;max-height:36vh;overflow:auto}
+  #btn-clear{display:none}
+  #btn-save{flex:0 0 auto;min-height:54px;font-size:17px;padding:0 16px}
+  .pc-only{display:none}
+  .sp-only{display:inline}
+
+  .toast{bottom:88px;font-size:17px;padding:12px 20px}
+  .permbar,.installbar,.alertbar{padding:12px 13px;margin-bottom:14px;font-size:16px}
+  .permbar button,.installbar button{min-height:52px;font-size:17px;padding:0 18px;flex:1 1 auto}
+  .alertbar .sub{font-size:14px}
+  .alertbar .days{gap:6px;margin-top:9px}
+  .alertbar .days button{min-height:44px;padding:7px 10px;font-size:15px;flex:1 1 30%}
+  .clear-m{display:block;width:100%;min-height:54px;margin-top:6px;border:2px solid var(--line);
+    background:#fff;border-radius:var(--r);font-size:17px;color:var(--ink-2);cursor:pointer}
+}
+.sp-only{display:none}
+.clear-m{display:none}
 
 @media (max-width:1000px){
   .carriers{grid-template-columns:1fr}
@@ -244,6 +303,7 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
 </head>
 <body>
 
+<div class="stickytop" id="stickytop">
 <header class="topbar">
   <div class="topbar-in">
     <div class="brand"><b>日計表</b><span>EC BASE LOGI</span></div>
@@ -263,6 +323,10 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
     <div class="field"><label for="f-writer">記入者</label><input type="text" id="f-writer" placeholder="名前を入れる" autocomplete="name"></div>
     <div class="sync-chip"><span class="dot" id="syncdot"></span><span id="synctext">確認中</span></div>
   </div>
+  <button class="ctx-summary" id="ctx-summary" type="button" aria-expanded="false">
+    <span class="cs-text" id="cs-text">—</span><span class="cs-act">変更</span>
+  </button>
+</div>
 </div>
 
 <main>
@@ -332,6 +396,7 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
     <div class="block-hd"><span class="block-no">06</span><h2>備考</h2></div>
     <div class="block-bd"><textarea class="memo" id="f-memo" placeholder="イレギュラー対応、申し送りなど"></textarea></div>
   </div>
+  <button class="clear-m" id="btn-clear-m">入力を消す</button>
 </section>
 
 <section class="view" id="view-monthly">
@@ -825,18 +890,19 @@ function recalc(){
   if(empties.length) msgs.push(`<span class="check-wa">⚠ 未入力：${empties.join("・")}（0件ならそのままでOK）</span>`);
   if(!blocked && !msgs.length) msgs.push(`<span class="check-ok">✓ 保存できます</span>`);
 
-  let tail = `運送会社 ${boxes} 箱`;
+  let tail = `<span class="pc-only">運送会社 ${boxes} 箱`;
   if(sv.pallets) tail += `（うちパレット ${sv.pallets} 枚）`;
   tail += ` ＋ 日計表 ${shipQty} 個口`;
   const inner=[];
   if(chtQty) inner.push(`チャーター ${chtQty}`);
   if(ovsQty) inner.push(`海外 ${ovsQty}`);
   if(inner.length) tail += `（${inner.join("・")}）`;
-  tail += ` ＝ <b>${boxes+shipQty} 個口</b>`;
+  tail += ` ＝ </span><span class="sp-only">合計 </span><b>${boxes+shipQty} 個口</b>`;
   if(payTotal) tail += `／チャーター支払 ${yen(payTotal)}`;
   msgs.push(`<span style="color:var(--ink-2)">${tail}</span>`);
 
   $("#checks").innerHTML = msgs.join("　");
+  updateCtxSummary();
   $("#btn-save").disabled = blocked;
 }
 
@@ -886,11 +952,22 @@ function fill(rec){
   ["ship","set","in","ret"].forEach(ensureRow);
   recalc();
 }
+function updateCtxSummary(){
+  const el = $("#cs-text"); if(!el) return;
+  const ds = $("#f-date").value, site = $("#f-site").value, w = $("#f-writer").value.trim();
+  let dtxt = "日付未設定";
+  if(ds){ const d = new Date(ds+"T00:00:00");
+    dtxt = (d.getMonth()+1)+"/"+d.getDate()+"（"+WD[d.getDay()]+"）"; }
+  el.textContent = dtxt + "　" + site + "　" + (w || "記入者を入れてください");
+  $("#ctx-summary").classList.toggle("need", !w);
+  if(!w) document.body.classList.add("ctx-open");
+}
 function loadDay(){
   const r = records[key($("#f-date").value, $("#f-site").value)];
   fill(r || null);
   $("#btn-save").textContent = r ? "この日の日計表を上書き保存" : "この日の日計表を保存";
   renderMissAlert();
+  updateCtxSummary();
 }
 
 function idbOpen(){
@@ -1048,7 +1125,29 @@ $("#btn-save").addEventListener("click", async ()=>{
     else toast("この端末に保存しました");
   }
 });
-$("#btn-clear").addEventListener("click", ()=>{ if(confirm("画面の入力を消します。よろしいですか？")) fill(null); });
+function doClear(){ if(confirm("画面の入力を消します。よろしいですか？")) fill(null); }
+$("#btn-clear").addEventListener("click", doClear);
+$("#btn-clear-m").addEventListener("click", doClear);
+$("#ctx-summary").addEventListener("click", ()=>{
+  const open = document.body.classList.toggle("ctx-open");
+  $("#ctx-summary").setAttribute("aria-expanded", String(open));
+  if(open) document.body.classList.remove("hide-top");
+});
+$("#checks").addEventListener("click", ()=> document.body.classList.toggle("checks-open"));
+(function(){
+  let last = 0, ticking = false;
+  const onScroll = ()=>{
+    const y = window.scrollY || 0;
+    if(document.body.classList.contains("ctx-open")){ last = y; return; }
+    if(y > last + 6 && y > 130) document.body.classList.add("hide-top");
+    else if(y < last - 6) document.body.classList.remove("hide-top");
+    last = y;
+  };
+  window.addEventListener("scroll", ()=>{
+    if(ticking) return; ticking = true;
+    requestAnimationFrame(()=>{ onScroll(); ticking = false; });
+  }, {passive:true});
+})();
 
 function monthRecords(ym, site){
   return Object.values(records).filter(r=> r.date && r.date.slice(0,7)===ym && (site==="__all" || r.site===site));
@@ -1464,11 +1563,18 @@ function renderMissAlert(){
   }
   const box = $("#miss-alert");
   if(!miss.length){ box.innerHTML=""; return; }
+  const SHOW = 6;
+  const btn = ds => { const dt=new Date(ds+"T00:00:00");
+    return `<button data-jump="${ds}">${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）</button>`; };
+  miss.reverse();
+  const head = miss.slice(0, SHOW), rest = miss.slice(SHOW);
   box.innerHTML = `<div class="alertbar">
     <b>${esc(site)}：直近2週間で ${miss.length}日分が未記入です。</b>
-    <div>日付を押すとその日の入力画面に切り替わります。</div>
-    <div class="days">${miss.reverse().map(ds=>{const dt=new Date(ds+"T00:00:00");
-      return `<button data-jump="${ds}">${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）</button>`;}).join("")}</div></div>`;
+    <div class="sub">日付を押すと、その日の入力画面に切り替わります。</div>
+    <div class="days">${head.map(btn).join("")}${rest.length? `<button class="more" id="miss-more">ほか${rest.length}日を見る</button>`:""}</div>
+    <div class="days" id="miss-rest" style="display:none">${rest.map(btn).join("")}</div></div>`;
+  const more = $("#miss-more", box);
+  if(more) more.addEventListener("click", ()=>{ $("#miss-rest",box).style.display="flex"; more.remove(); });
   $$("[data-jump]", box).forEach(b=> b.addEventListener("click", ()=>{ $("#f-date").value=b.dataset.jump; loadDay(); window.scrollTo(0,0); }));
 }
 
@@ -1555,6 +1661,8 @@ function switchView(v){
   $$(".view").forEach(s=> s.classList.toggle("active", s.id==="view-"+v));
   $("#savebar").style.display = v==="input" ? "" : "none";
   $("#ctxbar").style.display  = v==="input" ? "" : "none";
+  $("#ctx-summary").style.display = v==="input" ? "" : "none";
+  document.body.classList.remove("hide-top");
   if(v==="monthly") runMonthly();
   if(v==="status")  runStatus();
 }
@@ -1689,7 +1797,7 @@ function boot(){
   if(!$("#s-month").value) $("#s-month").value = monthStr();
   if(!$("#x-month").value) $("#x-month").value = monthStr();
   const w = Store.get(K_WRITER); if(w && !$("#f-writer").value) $("#f-writer").value = w;
-  loadDay(); fsStatus(); renderInstall();
+  loadDay(); updateCtxSummary(); fsStatus(); renderInstall();
   if(FS.supported){
     FS.restore().then(async ok=>{
       fsStatus();
