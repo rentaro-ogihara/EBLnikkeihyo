@@ -98,6 +98,36 @@ input.num.need{border-color:var(--alert);background:#fdeee9}
 .g-ship{grid-template-columns:1.3fr 178px 92px 100px 106px 1.3fr 44px}
 .g-set{grid-template-columns:1.3fr 1.5fr 106px 106px 1.3fr 44px}
 .g-in{grid-template-columns:1.3fr 104px 100px 106px 1.5fr 1.2fr 44px}
+/* 入荷：1行＝1企業、その中に商品行 */
+.inrow{display:block !important;padding:12px !important}
+.in-head{display:grid;grid-template-columns:1.3fr 1.6fr 44px;gap:9px;align-items:center}
+.in-items{margin:11px 0 0 0;display:flex;flex-direction:column;gap:8px}
+.itemrow{display:grid;grid-template-columns:1.5fr 96px 92px 100px 150px 1fr 40px;gap:8px;align-items:center;
+  background:#f7f6f2;border:2px solid var(--line-2);border-radius:var(--r);padding:8px}
+.itemrow:focus-within{border-color:var(--signal);background:#f0f6fd}
+.itemrow .lbl{display:none}
+.itemrow select,.itemrow input[type=text]{border:2px solid var(--line);border-radius:var(--r);
+  padding:8px;min-height:46px;width:100%;background:#fff;font-size:17px}
+.itemrow input.num{min-height:46px;font-size:18px;padding:8px}
+.itemrow .del{width:40px;height:46px;font-size:20px}
+.itemhead{display:grid;grid-template-columns:1.5fr 96px 92px 100px 150px 1fr 40px;gap:8px;
+  font-size:13px;letter-spacing:.06em;color:var(--ink-2);font-weight:700;padding:0 8px 4px}
+.additem{margin-top:9px;width:100%;min-height:48px;border:2px dashed var(--line);background:#fff;
+  border-radius:var(--r);color:var(--signal);font-weight:700;font-size:16px;cursor:pointer}
+.additem:hover{background:#eef4fb;border-color:var(--signal)}
+.expview{display:block;font-size:13px;color:var(--ink-2);margin-top:3px;min-height:16px;line-height:1.3}
+.itemrow.want-exp{background:#fffdf3;border-color:#e0d4a8}
+.itemrow .expcell{display:none}
+.itemrow.want-exp .expcell{display:block}
+@media (max-width:1000px){
+  .in-head{grid-template-columns:1fr}
+  .itemrow{grid-template-columns:1fr 1fr}
+  .itemrow .cell{display:flex;flex-direction:column;gap:4px}
+  .itemrow .cell.full{grid-column:1 / -1}
+  .itemrow .lbl{display:block;font-size:13px;letter-spacing:.06em;color:var(--ink-2);font-weight:700}
+  .itemrow .del{width:100%;grid-column:1 / -1}
+  .itemhead{display:none}
+}
 .g-ret{grid-template-columns:1.3fr 100px 106px 1.3fr 150px 1.2fr 44px}
 
 .datarow.k-dom{border-left:8px solid var(--k-dom)}
@@ -359,7 +389,7 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
   <div class="block">
     <div class="block-hd"><span class="block-no">02</span><h2>出荷</h2><span class="hint">チャーター便・海外出荷・LOGILESS未導入の企業</span></div>
     <div class="block-bd">
-      <div class="rowhead g-ship"><div>企業名</div><div>区分</div><div>件数</div><div>ピック数</div><div>出荷個数</div><div>詳細（型番など）</div></div>
+      <div class="rowhead g-ship"><div>企業名</div><div>区分</div><div>件数</div><div>ピック数</div><div>出荷個数</div><div>商品・詳細</div></div>
       <div class="rows" id="rows-ship"></div>
       <button class="addrow" data-add="ship">＋ 出荷の行を追加</button>
     </div>
@@ -368,18 +398,17 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
   <div class="block">
     <div class="block-hd"><span class="block-no">03</span><h2>セット組・テスター作成</h2><span class="hint">付帯作業</span></div>
     <div class="block-bd">
-      <div class="rowhead g-set"><div>企業名</div><div>作業内容</div><div>ピック数</div><div>セット数</div><div>備考（組換え商品名など）</div></div>
+      <div class="rowhead g-set"><div>企業名</div><div>作業内容</div><div>ピック数</div><div>セット数</div><div>商品（組換え商品名）</div></div>
       <div class="rows" id="rows-set"></div>
       <button class="addrow" data-add="set">＋ セット組の行を追加</button>
     </div>
   </div>
 
   <div class="block">
-    <div class="block-hd"><span class="block-no">04</span><h2>入荷・入庫</h2><span class="hint">付帯作業</span></div>
+    <div class="block-hd"><span class="block-no">04</span><h2>入荷・入庫</h2><span class="hint">企業ごとに1行。その中に商品を足していきます</span></div>
     <div class="block-bd">
-      <div class="rowhead g-in"><div>企業名</div><div>パレット数</div><div>箱数</div><div>ピース数</div><div>商品名</div><div>備考</div></div>
       <div class="rows" id="rows-in"></div>
-      <button class="addrow" data-add="in">＋ 入荷の行を追加</button>
+      <button class="addrow" data-add="in">＋ 企業を追加</button>
     </div>
   </div>
 
@@ -490,6 +519,17 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
   </div>
 
   <div class="block">
+    <div class="block-hd"><span class="block-no">設定</span><h2>商品</h2><span class="hint">入荷・出荷・返品・セット組のプルダウンに出ます</span></div>
+    <div class="block-bd">
+      <div class="setrow sethead" style="grid-template-columns:1.6fr 1fr 150px 44px"><div>商品名</div><div>企業（任意）</div><div>賞味期限</div><div></div></div>
+      <div id="prods-list"></div>
+      <button class="addrow" id="add-prod">＋ 商品を追加</button>
+      <div class="note">企業を選んでおくと、入力画面でその企業を選んだときに<b>その商品が一覧の先頭</b>に出ます。空欄なら全企業共通です。<br>
+      「賞味期限：あり」にした商品は、入荷のときに賞味期限とロットの欄が開き、<b>空のままだと注意が出ます</b>（保存はできます）。</div>
+    </div>
+  </div>
+
+  <div class="block">
     <div class="block-hd"><span class="block-no">設定</span><h2>セット組の作業内容</h2><span class="hint">03のプルダウンに出ます</span></div>
     <div class="block-bd">
       <div id="works-list"></div>
@@ -500,10 +540,16 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
 
   <div class="block">
     <div class="block-hd"><span class="block-no">設定</span><h2>バックアップ</h2></div>
-    <div class="block-bd" style="display:flex;gap:11px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" id="b-export">設定とデータを書き出す</button>
-      <button class="btn btn-ghost btn-sm" id="b-import">書き出したファイルを読み込む</button>
-      <input type="file" id="b-file" accept="application/json" hidden>
+    <div class="block-bd">
+      <div style="display:flex;gap:11px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" id="b-export">設定とデータを書き出す</button>
+        <button class="btn btn-ghost btn-sm" id="b-import">書き出したファイルを読み込む</button>
+        <input type="file" id="b-file" accept="application/json" hidden>
+      </div>
+      <div class="note" style="border-left-color:var(--ok);background:#eaf6ef">
+        <b>この端末は、開くたびに自動でひかえを取っています。</b>直近5回分が残っていて、下から元に戻せます。
+      </div>
+      <div id="bk-list"></div>
     </div>
   </div>
 </section>
@@ -538,6 +584,7 @@ const DEFAULT_CFG = {
   offDays:[0],
   sites:["本社倉庫","八寸町倉庫"],
   works:["什器組み換え","パネル入れ替え","セット組","テスター作成"],
+  products:[],
   companies:[],
   ts:0
 };
@@ -577,6 +624,42 @@ async function pullSettings(){
 }
 function saveRec(){ Store.set(K_REC, JSON.stringify(records)); }
 function saveRate(){ Store.set(K_RATE, JSON.stringify(rates)); }
+
+/* ============================================================
+   データ保護：起動のたびに世代バックアップを取る
+   　更新でうまく読めなくなっても、ここから元に戻せる
+   ============================================================ */
+const K_BK = "ebl_nikkei_backup_v1", BK_KEEP = 5;
+function snapshotNow(reason){
+  try{
+    const list = JSON.parse(Store.get(K_BK) || "[]");
+    const payload = {
+      at: new Date().toISOString(),
+      reason: reason || "起動時",
+      days: Object.keys(records).length,
+      cfg: JSON.parse(Store.get(K_CFG) || "null"),
+      records: JSON.parse(Store.get(K_REC) || "{}"),
+      rates: JSON.parse(Store.get(K_RATE) || "{}")
+    };
+    if(!payload.days && !(payload.cfg && (payload.cfg.companies||[]).length)) return;
+    const last = list[0];
+    if(last && JSON.stringify(last.records) === JSON.stringify(payload.records)
+            && JSON.stringify(last.cfg) === JSON.stringify(payload.cfg)) return;
+    list.unshift(payload);
+    while(list.length > BK_KEEP) list.pop();
+    Store.set(K_BK, JSON.stringify(list));
+  }catch(e){}
+}
+function backupList(){ try{ return JSON.parse(Store.get(K_BK) || "[]"); }catch(e){ return []; } }
+function restoreBackup(i){
+  const list = backupList(), b = list[i];
+  if(!b) return false;
+  snapshotNow("復元する直前");
+  if(b.cfg){ cfg = b.cfg; Store.set(K_CFG, JSON.stringify(cfg)); }
+  if(b.records){ records = b.records; saveRec(); }
+  if(b.rates){ rates = b.rates; saveRate(); }
+  return true;
+}
 function saveDirty(){ Store.set(K_DIRTY, JSON.stringify(dirty)); }
 function markDirty(k){ if(dirty.indexOf(k)<0){ dirty.push(k); saveDirty(); } }
 async function flushDirty(){
@@ -740,6 +823,52 @@ const compOptions = () => {
   return `<option value="">選ぶ</option><optgroup label="LOGILESS済">${y}</optgroup><optgroup label="LOGILESS未">${n}</optgroup><optgroup label="その他"><option value="__other">（直接入力）</option></optgroup>`;
 };
 
+const productOptions = (comp) => {
+  const all = cfg.products || [];
+  const mine = all.filter(p => p.c && p.c === comp);
+  const other = all.filter(p => !(p.c && p.c === comp));
+  const opt = p => `<option value="${esc(p.n)}">${esc(p.n)}</option>`;
+  let h = `<option value="">選ぶ</option>`;
+  if(mine.length)  h += `<optgroup label="${esc(comp)} の商品">${mine.map(opt).join("")}</optgroup>`;
+  if(other.length) h += `<optgroup label="${mine.length?"そのほか":"商品"}">${other.map(opt).join("")}</optgroup>`;
+  h += `<option value="__other">（直接入力）</option>`;
+  return h;
+};
+function productInfo(n){ return (cfg.products||[]).find(p=>p.n===n) || null; }
+function needsExp(n){ const p = productInfo(n); return !!(p && p.e); }
+
+/* 賞味期限：数字だけで入れられるようにする
+   260430 / 20260430 / 2026-04-30 / 0430 → YYYY-MM-DD */
+function parseExp(v){
+  const raw = String(v==null?"":v).trim();
+  if(!raw) return "";
+  const m = raw.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+  if(m) return `${m[1]}-${String(+m[2]).padStart(2,"0")}-${String(+m[3]).padStart(2,"0")}`;
+  const d = raw.replace(/\D/g,"");
+  const now = new Date();
+  if(d.length===8) return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+  if(d.length===6) return `20${d.slice(0,2)}-${d.slice(2,4)}-${d.slice(4,6)}`;
+  if(d.length===4){ // MMDD：いちばん近い未来の年
+    const mo=+d.slice(0,2), dd=+d.slice(2,4);
+    let y=now.getFullYear();
+    if(new Date(y,mo-1,dd) < new Date(now.getFullYear(),now.getMonth(),now.getDate())) y++;
+    return `${y}-${String(mo).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
+  }
+  return "";
+}
+function expLabel(v){
+  const iso = parseExp(v);
+  if(!iso) return "";
+  const [y,m,d] = iso.split("-").map(Number);
+  const dt = new Date(y,m-1,d);
+  if(isNaN(dt) || m<1||m>12||d<1||d>31) return "";
+  const days = Math.round((dt - new Date(new Date().toDateString()))/86400000);
+  let tail = "";
+  if(days < 0) tail = `<span style="color:var(--alert)">期限切れ</span>`;
+  else if(days <= 90) tail = `<span style="color:var(--warn)">あと${days}日</span>`;
+  return `${y}/${m}/${d} ${tail}`;
+}
+
 const workOptions = () =>
   `<option value="">選ぶ</option>` + (cfg.works||[]).map(w=>`<option>${esc(w)}</option>`).join("")
   + `<option value="__other">（直接入力）</option>`;
@@ -751,14 +880,14 @@ const SPECS = {
     {k:"cases",  t:"num", lbl:"件数"},
     {k:"picks",  t:"num", lbl:"ピック数"},
     {k:"qty",    t:"num", lbl:"出荷個数"},
-    {k:"detail", t:"text",lbl:"詳細（型番など）",full:1}
+    {k:"detail", t:"psel",lbl:"商品・詳細",full:1}
   ]},
   set:{ grid:"g-set", cells:[
     {k:"company",t:"comp",lbl:"企業名"},
     {k:"work",   t:"wsel",lbl:"作業内容",full:1},
     {k:"picks",  t:"num", lbl:"ピック数"},
     {k:"sets",   t:"num", lbl:"セット数"},
-    {k:"note",   t:"text",lbl:"備考（組換え商品名など）",full:1}
+    {k:"note",   t:"psel",lbl:"商品（組換え商品名）",full:1}
   ]},
   in:{ grid:"g-in", cells:[
     {k:"company",t:"comp",lbl:"企業名"},
@@ -772,13 +901,123 @@ const SPECS = {
     {k:"company",t:"comp",lbl:"企業名"},
     {k:"boxes",  t:"num", lbl:"箱数"},
     {k:"pieces", t:"num", lbl:"ピース数"},
-    {k:"product",t:"text",lbl:"商品名",full:1},
+    {k:"product",t:"psel",lbl:"商品名",full:1},
     {k:"payer",  t:"sel", lbl:"送料の負担", opts:["","EBL","企業"]},
     {k:"cod",    t:"cod", lbl:"着払い"}
   ]}
 };
 
+/* 旧形式（1行＝1商品）も読めるようにそろえる。中身は絶対に捨てない */
+function normalizeIn(d){
+  d = d || {};
+  if(Array.isArray(d.items)) return {company:d.company||"", note:d.note||"", items:d.items.slice()};
+  const it = {product:d.product||"", pallets:num(d.pallets), boxes:num(d.boxes), pieces:num(d.pieces),
+              exp:d.exp||"", lot:d.lot||""};
+  const empty = !it.product && !it.pallets && !it.boxes && !it.pieces;
+  return {company:d.company||"", note:d.note||"", items: empty?[]:[it]};
+}
+
+function addItemRow(host, data){
+  data = data || {};
+  const row = document.createElement("div");
+  row.className = "itemrow";
+  row.innerHTML = `
+    <div class="cell full"><span class="lbl">商品</span>
+      <select data-k="product"></select>
+      <input type="text" data-k="productFree" placeholder="商品名を入力" style="display:none;margin-top:6px"></div>
+    <div class="cell"><span class="lbl">パレット数</span><input class="num" inputmode="numeric" data-k="pallets" placeholder="0"></div>
+    <div class="cell"><span class="lbl">箱数</span><input class="num" inputmode="numeric" data-k="boxes" placeholder="0"></div>
+    <div class="cell"><span class="lbl">ピース数</span><input class="num" inputmode="numeric" data-k="pieces" placeholder="0"></div>
+    <div class="cell expcell"><span class="lbl">賞味期限</span>
+      <input type="text" data-k="exp" inputmode="numeric" placeholder="260430">
+      <span class="expview"></span></div>
+    <div class="cell expcell"><span class="lbl">ロット</span><input type="text" data-k="lot" placeholder="ロット番号"></div>
+    <button class="del" aria-label="この商品を消す">✕</button>`;
+
+  const dr = host.closest(".datarow");
+  const sel = $('[data-k="product"]', row), free = $('[data-k="productFree"]', row);
+  sel.innerHTML = productOptions(dr ? rowCompany(dr) : "");
+  if(data.product){
+    if(Array.from(sel.options).some(o=>o.value===data.product)) sel.value = data.product;
+    else { sel.value="__other"; free.style.display="block"; free.value=data.product; }
+  }
+  ["pallets","boxes","pieces","exp","lot"].forEach(k=>{
+    if(data[k]!==undefined && data[k]!=="" && data[k]!==0){ const el=$(`[data-k="${k}"]`,row); if(el) el.value=data[k]; }
+  });
+
+  const paint = ()=>{
+    const p = sel.value==="__other" ? (free.value||"").trim() : sel.value;
+    const on = needsExp(p) || !!$('[data-k="exp"]',row).value || !!$('[data-k="lot"]',row).value;
+    row.classList.toggle("want-exp", on);
+    $(".expview",row).innerHTML = expLabel($('[data-k="exp"]',row).value);
+  };
+  sel.addEventListener("change", ()=>{ free.style.display = sel.value==="__other"?"block":"none"; paint(); recalc(); });
+  free.addEventListener("input", ()=>{ paint(); recalc(); });
+  $('[data-k="exp"]',row).addEventListener("input", ()=>{ paint(); recalc(); });
+  $('[data-k="exp"]',row).addEventListener("blur", e=>{
+    const iso = parseExp(e.target.value);
+    if(iso) e.target.value = iso.replace(/-/g,"/");
+    paint();
+  });
+  $$("input,select",row).forEach(el=> el.addEventListener("input", recalc));
+  $(".del",row).addEventListener("click", ()=>{
+    row.remove();
+    if(!host.children.length) addItemRow(host);
+    recalc();
+  });
+  host.appendChild(row);
+  paint();
+  return row;
+}
+
+function addInRow(data){
+  data = normalizeIn(data);
+  const row = document.createElement("div");
+  row.className = "datarow inrow";
+  row.dataset.type = "in";
+  row.innerHTML = `
+    <div class="in-head">
+      <div class="cell"><span class="lbl">企業名</span>
+        <select data-k="company">${compOptions()}</select>
+        <input type="text" data-k="companyFree" placeholder="企業名を入力" style="display:none;margin-top:6px"></div>
+      <div class="cell"><span class="lbl">備考</span><input type="text" data-k="note" placeholder="備考"></div>
+      <button class="del" aria-label="この企業ごと消す">✕</button>
+    </div>
+    <div class="itemhead"><div>商品</div><div>パレット数</div><div>箱数</div><div>ピース数</div><div>賞味期限</div><div>ロット</div><div></div></div>
+    <div class="in-items"></div>
+    <button class="additem" type="button">＋ 商品を追加</button>`;
+
+  const sel = $('[data-k="company"]', row), free = $('[data-k="companyFree"]', row);
+  if(data.company){
+    if(Array.from(sel.options).some(o=>o.value===data.company)) sel.value = data.company;
+    else { sel.value="__other"; free.style.display="block"; free.value=data.company; }
+  }
+  if(data.note) $('[data-k="note"]', row).value = data.note;
+
+  const host = $(".in-items", row);
+  sel.addEventListener("change", ()=>{
+    free.style.display = sel.value==="__other" ? "block":"none";
+    const c = rowCompany(row);
+    $$(".itemrow", row).forEach(ir=>{
+      const s2=$('[data-k="product"]',ir), f2=$('[data-k="productFree"]',ir);
+      const cur=s2.value; s2.innerHTML = productOptions(c);
+      if(Array.from(s2.options).some(o=>o.value===cur)) s2.value=cur;
+      else if(f2.value) s2.value="__other";
+    });
+    recalc();
+  });
+  free.addEventListener("input", recalc);
+  $('[data-k="note"]', row).addEventListener("input", recalc);
+  $(".del", row).addEventListener("click", ()=>{ row.remove(); ensureRow("in"); recalc(); });
+  $(".additem", row).addEventListener("click", ()=>{ const ir=addItemRow(host); const f=$("select",ir); if(f) f.focus(); recalc(); });
+
+  $("#rows-in").appendChild(row);
+  (data.items.length ? data.items : [{}]).forEach(it=> addItemRow(host, it));
+  return row;
+}
+
 function addRow(type, data){
+  if(type === "in") return addInRow(data);
   data = data || {};
   const spec = SPECS[type];
   const row = document.createElement("div");
@@ -791,6 +1030,7 @@ function addRow(type, data){
     else if(c.t==="num")  inner = `<input class="num" inputmode="numeric" data-k="${c.k}" value="${v}" placeholder="0">`;
     else if(c.t==="text") inner = `<input type="text" data-k="${c.k}" value="${v}">`;
     else if(c.t==="sel")  inner = `<select data-k="${c.k}">${c.opts.map(o=>`<option value="${esc(o)}">${o||"選ぶ"}</option>`).join("")}</select>`;
+    else if(c.t==="psel") inner = `<select data-k="product"></select><input type="text" data-k="productFree" placeholder="商品名を入力" style="display:none;margin-top:6px">`;
     else if(c.t==="wsel") inner = `<select data-k="work">${workOptions()}</select><input type="text" data-k="workFree" placeholder="作業内容を入力" style="display:none;margin-top:6px">`;
     else if(c.t==="cod")  inner = `<label class="chkline"><input type="checkbox" data-k="cod">着払い</label><input type="text" data-k="codNote" placeholder="運送会社など" style="margin-top:6px">`;
     return `<div class="cell${c.full?" full":""}"><span class="lbl">${c.lbl}</span>${inner}</div>`;
@@ -823,6 +1063,26 @@ function addRow(type, data){
     wk.addEventListener("change", ()=>{ wfree.style.display = wk.value==="__other" ? "block" : "none"; recalc(); });
     wfree.addEventListener("input", recalc);
   }
+  const ps = $('[data-k="product"]', row);
+  if(ps && !row.classList.contains("itemrow")){
+    const pfree = $('[data-k="productFree"]', row);
+    const pv = data.product || data.detail || data.note || "";
+    const refill = ()=>{
+      const cur = ps.value==="__other" ? "__other" : ps.value;
+      ps.innerHTML = productOptions(rowCompany(row));
+      if(Array.from(ps.options).some(x=>x.value===cur)) ps.value = cur;
+      else if(pfree.value) ps.value = "__other";
+    };
+    ps.innerHTML = productOptions(data.company||"");
+    if(pv){
+      if(Array.from(ps.options).some(x=>x.value===pv)) ps.value = pv;
+      else { ps.value="__other"; pfree.style.display="block"; pfree.value=pv; }
+    }
+    ps.addEventListener("change", ()=>{ pfree.style.display = ps.value==="__other" ? "block":"none"; recalc(); });
+    pfree.addEventListener("input", recalc);
+    const csel = $('[data-k="company"]', row);
+    if(csel) csel.addEventListener("change", refill);
+  }
   const kd = $('[data-k="kind"]', row);
   if(kd){
     kd.value = data.kind || "LOGILESS未導入";
@@ -850,14 +1110,36 @@ function rowCompany(row){
   const sel=$('[data-k="company"]',row); if(!sel) return "";
   return sel.value==="__other" ? ($('[data-k="companyFree"]',row).value||"").trim() : sel.value;
 }
+function itemFilled(ir){
+  const sel=$('[data-k="product"]',ir);
+  const p = sel.value==="__other" ? ($('[data-k="productFree"]',ir).value||"").trim() : sel.value;
+  if(p) return true;
+  return ["pallets","boxes","pieces","exp","lot"].some(k=> String($(`[data-k="${k}"]`,ir).value||"").trim()!=="");
+}
+function itemData(ir){
+  const sel=$('[data-k="product"]',ir);
+  const p = sel.value==="__other" ? ($('[data-k="productFree"]',ir).value||"").trim() : sel.value;
+  return { product:p, pallets:num(rowVal(ir,"pallets")), boxes:num(rowVal(ir,"boxes")),
+           pieces:num(rowVal(ir,"pieces")), exp:parseExp(rowVal(ir,"exp")), lot:(rowVal(ir,"lot")||"").trim() };
+}
+function rowProduct(row){
+  const sel=$('[data-k="product"]',row); if(!sel) return "";
+  return sel.value==="__other" ? ($('[data-k="productFree"]',row).value||"").trim() : sel.value;
+}
 function rowWork(row){
   const sel=$('[data-k="work"]',row); if(!sel) return "";
   return sel.value==="__other" ? ($('[data-k="workFree"]',row).value||"").trim() : sel.value;
 }
 function rowVal(row,k){ const el=$(`[data-k="${k}"]`,row); if(!el) return ""; return el.type==="checkbox"? el.checked : el.value; }
 function rowEmpty(row){
+  if(row.classList.contains("inrow")){
+    if(rowCompany(row)) return false;
+    if(($('[data-k="note"]',row).value||"").trim()) return false;
+    return !$$(".itemrow", row).some(ir=> itemFilled(ir));
+  }
   if(rowCompany(row)) return false;
   if(rowWork(row)) return false;
+  if(rowProduct(row)) return false;
   return !$$("input",row).some(i=> i.type!=="checkbox" && i.dataset.k!=="companyFree" && String(i.value).trim()!=="" );
 }
 
@@ -885,6 +1167,13 @@ function recalc(){
   if(seinoNG){ msgs.push(`<span class="check-ng">✕ 西濃（路線便）のパレット出しした箱数が未入力です</span>`); blocked=true; }
   if(charterMissing){ msgs.push(`<span class="check-ng">✕ チャーター便 ${charterMissing}件の手配会社・支払金額が未入力です</span>`); blocked=true; }
   if(!boxes && !shipQty) msgs.push(`<span class="check-wa">⚠ 出荷がまだ1件も入っていません</span>`);
+  let expMiss = 0;
+  $$("#rows-in .itemrow").forEach(ir=>{
+    if(!itemFilled(ir)) return;
+    const d = itemData(ir);
+    if(d.product && needsExp(d.product) && !d.exp) expMiss++;
+  });
+  if(expMiss) msgs.push(`<span class="check-wa">⚠ 賞味期限が未入力の商品が ${expMiss}件あります</span>`);
   const empties = ["set","in","ret"].filter(t=> $$("#rows-"+t+" .datarow").every(rowEmpty))
     .map(t=>({set:"セット組",in:"入荷",ret:"返品"})[t]);
   if(empties.length) msgs.push(`<span class="check-wa">⚠ 未入力：${empties.join("・")}（0件ならそのままでOK）</span>`);
@@ -914,13 +1203,19 @@ function collect(){
     $$(`#carriers input[data-c="${c.id}"]`).forEach(i=> o[i.dataset.z]=num(i.value));
     rec.carriers[c.id]=o;
   });
-  ["ship","set","in","ret"].forEach(t=>{
+  $$("#rows-in .datarow").forEach(r=>{
+    if(rowEmpty(r)) return;
+    rec.in.push({ company:rowCompany(r), note:rowVal(r,"note"),
+                  items: $$(".itemrow", r).filter(itemFilled).map(itemData) });
+  });
+  ["ship","set","ret"].forEach(t=>{
     $$("#rows-"+t+" .datarow").forEach(r=>{
       if(rowEmpty(r)) return;
       const o={company:rowCompany(r)};
       if(t==="set") o.work = rowWork(r);
       SPECS[t].cells.forEach(c=>{
         if(c.k==="company" || c.k==="work") return;
+        if(c.t==="psel"){ o[c.k] = rowProduct(r); return; }
         if(c.t==="cod"){ o.cod=rowVal(r,"cod"); o.codNote=rowVal(r,"codNote"); }
         else if(c.t==="num") o[c.k]=num(rowVal(r,c.k));
         else o[c.k]=rowVal(r,c.k);
@@ -1057,7 +1352,7 @@ async function connectFolder(){
     if(!FS.dir) return false;
     fsStatus(); renderPermBar();
     const gotCfg = await pullSettings();
-    if(gotCfg){ renderOffDays(); renderSites(); renderComps(); renderWorks(); renderSiteSelects(); }
+    if(gotCfg){ renderOffDays(); renderSites(); renderComps(); renderWorks(); renderProducts(); renderSiteSelects(); }
     else { await pushSettings(); }
     const sent = await flushDirty();
     const got  = await syncFromFolder(monthStr());
@@ -1149,6 +1444,13 @@ $("#checks").addEventListener("click", ()=> document.body.classList.toggle("chec
   }, {passive:true});
 })();
 
+/* 入荷レコードを新旧どちらの形式でも商品行に展開する */
+function inItems(x){
+  if(Array.isArray(x.items)) return x.items;
+  const it = {product:x.product||"", pallets:num(x.pallets), boxes:num(x.boxes), pieces:num(x.pieces),
+              exp:x.exp||"", lot:x.lot||""};
+  return (it.product||it.pallets||it.boxes||it.pieces) ? [it] : [];
+}
 function monthRecords(ym, site){
   return Object.values(records).filter(r=> r.date && r.date.slice(0,7)===ym && (site==="__all" || r.site===site));
 }
@@ -1192,7 +1494,8 @@ async function runMonthly(){
       if(!setCells[k2]) setCells[k2] = {company:cn, work:wn, sets:0};
       setCells[k2].sets += q;
     });
-    (r.in ||[]).forEach(x=>{ const c=ga(x.company||"（未記入）"); c.inPallets+=num(x.pallets); c.inBoxes+=num(x.boxes); c.inPieces+=num(x.pieces); });
+    (r.in ||[]).forEach(x=>{ const c=ga(x.company||"（未記入）");
+      inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces); }); });
     (r.ret||[]).forEach(x=>{ const c=ga(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces); });
     byDay[r.date] = {carrier:dayCarrier, sheet:daySheet};
   });
@@ -1461,7 +1764,8 @@ function csvCompanies(){
       if(!wcells[kk]) wcells[kk]={company:cn,work:wn,sets:0};
       wcells[kk].sets+=qy;
     });
-    (r.in ||[]).forEach(x=>{ const c=g(x.company||"（未記入）"); c.inPallets+=num(x.pallets); c.inBoxes+=num(x.boxes); c.inPieces+=num(x.pieces); });
+    (r.in ||[]).forEach(x=>{ const c=g(x.company||"（未記入）");
+      inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces); }); });
     (r.ret||[]).forEach(x=>{ const c=g(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces); });
   });
   Object.values(wcells).forEach(c=>{ m[c.company].setAmt += c.sets*rateWork(ym,c.company,c.work); });
@@ -1492,26 +1796,27 @@ function csvRaw(){
   const ym=$("#m-month").value, site=$("#m-site").value;
   const recs = monthRecords(ym,site).sort((a,b)=> a.date<b.date?-1:1);
   const head=["日付","年月","曜日","拠点","記入者","ブロック","区分・作業内容","企業名","件数","ピック数","出荷個数",
-    "セット数","パレット数","箱数","ピース数","商品名・詳細","手配会社","チャーター支払","送料負担","着払い","単価","金額","備考"];
+    "セット数","パレット数","箱数","ピース数","商品名・詳細","賞味期限","ロット","手配会社","チャーター支払","送料負担","着払い","単価","金額","備考"];
   const lines=[head.map(q).join(",")];
   const push=a=>lines.push(a.map(q).join(","));
   recs.forEach(r=>{
     const w = WD[new Date(r.date+"T00:00:00").getDay()], y2 = r.date.slice(0,7), rt = n=>rateComp(y2,n||"");
     (r.ship||[]).forEach(x=> push([r.date,y2,w,r.site,r.writer,"出荷",x.kind||"",x.company,x.cases,x.picks,x.qty,
-      "","","","",x.detail,x.agent||"",x.pay||"","","","","",""]));
+      "","","","",x.detail,"","",x.agent||"",x.pay||"","","","","",""]));
     (r.set ||[]).forEach(x=>{ const wn=x.work||x.product||"", p=rateWork(y2,x.company||"",wn);
       push([r.date,y2,w,r.site,r.writer,"セット組",wn,x.company,"",x.picks,"",x.sets,"","","",wn,"","","","",p,num(x.sets)*p,x.note]); });
     (r.in  ||[]).forEach(x=>{ const p=rt(x.company).pi;
-      push([r.date,y2,w,r.site,r.writer,"入荷・入庫","",x.company,"","","","",x.pallets,x.boxes,x.pieces,x.product,"","","","",p,num(x.boxes)*p,x.note]); });
+      inItems(x).forEach(it=> push([r.date,y2,w,r.site,r.writer,"入荷・入庫","",x.company,"","","","",
+        it.pallets,it.boxes,it.pieces,it.product,it.exp||"",it.lot||"","","","","",p,num(it.boxes)*p,x.note||""])); });
     (r.ret ||[]).forEach(x=>{ const p=rt(x.company).pr;
-      push([r.date,y2,w,r.site,r.writer,"返品","",x.company,"","","","","",x.boxes,x.pieces,x.product,"","",x.payer,x.cod?("着払い "+(x.codNote||"")):"",p,num(x.boxes)*p,""]); });
+      push([r.date,y2,w,r.site,r.writer,"返品","",x.company,"","","","","",x.boxes,x.pieces,x.product,"","","","",x.payer,x.cod?("着払い "+(x.codNote||"")):"",p,num(x.boxes)*p,""]); });
     CARRIERS.forEach(c=>{ const o=((r.carriers||{})[c.id])||{};
       if(!Object.values(o).some(v=>num(v))) return;
-      if(c.type==="pallet") push([r.date,y2,w,r.site,r.writer,"運送会社","",c.name,"","","","",o.pallets||0,o.boxes||0,"","","","","","","","",""]);
+      if(c.type==="pallet") push([r.date,y2,w,r.site,r.writer,"運送会社","",c.name,"","","","",o.pallets||0,o.boxes||0,"","","","","","","","","",""]);
       else push([r.date,y2,w,r.site,r.writer,"運送会社","",c.name,"","","","","",o.final||0,"",
-        `常温${o.normal||0}/JITBOX${o.jitbox||0}/冷凍${o.frozen||0}/冷蔵${o.chilled||0}`,"","","","","","",""]);
+        `常温${o.normal||0}/JITBOX${o.jitbox||0}/冷凍${o.frozen||0}/冷蔵${o.chilled||0}`,"","","","","","","",""]);
     });
-    if(r.memo) push([r.date,y2,w,r.site,r.writer,"備考","","","","","","","","","","","","","","","","",r.memo]);
+    if(r.memo) push([r.date,y2,w,r.site,r.writer,"備考","","","","","","","","","","","","","","","","","","",r.memo]);
   });
   download(`日計表_明細_${ym}.csv`, lines.join("\r\n"));
 }
@@ -1597,6 +1902,24 @@ function renderSites(){
     cfg.sites.splice(+b.dataset.sdel,1); saveCfg(); renderSites(); renderSiteSelects();
   }));
 }
+function renderBackups(){
+  const box = $("#bk-list"); if(!box) return;
+  const list = backupList();
+  if(!list.length){ box.innerHTML = `<div style="padding:10px;color:var(--ink-3)">まだひかえがありません。</div>`; return; }
+  box.innerHTML = list.map((b,i)=>{
+    const d = new Date(b.at);
+    const t = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    const comps = (b.cfg && b.cfg.companies || []).length;
+    return `<div class="setrow" style="grid-template-columns:1fr auto">
+      <div><b>${t}</b>　<span style="color:var(--ink-2);font-size:15px">日計表 ${b.days}日分／企業 ${comps}社（${esc(b.reason)}）</span></div>
+      <button class="btn btn-ghost btn-sm" data-bk="${i}">この時点に戻す</button></div>`;
+  }).join("");
+  $$("[data-bk]", box).forEach(btn=> btn.addEventListener("click", ()=>{
+    const i = +btn.dataset.bk, b = backupList()[i];
+    if(!confirm("この時点の内容に戻します。\n\n"+new Date(b.at).toLocaleString()+"\n日計表 "+b.days+"日分\n\nいまの内容は、戻す直前のひかえとして残ります。よろしいですか？")) return;
+    if(restoreBackup(i)){ boot(); toast("元に戻しました"); }
+  }));
+}
 function renderWorks(){
   cfg.works = cfg.works || [];
   $("#works-list").innerHTML = cfg.works.map((w,i)=>`
@@ -1609,6 +1932,29 @@ function renderWorks(){
   $$("[data-wdel]").forEach(b=> b.addEventListener("click", ()=>{
     if(!confirm("この作業内容を消しますか？（保存済みのデータは消えません）")) return;
     cfg.works.splice(+b.dataset.wdel,1); saveCfg(); renderWorks(); refreshWorkSelects();
+  }));
+}
+function renderProducts(){
+  cfg.products = cfg.products || [];
+  const comps = `<option value="">（共通）</option>` + cfg.companies.map(c=>`<option>${esc(c.n)}</option>`).join("");
+  $("#prods-list").innerHTML = cfg.products.map((p,i)=>`
+    <div class="setrow" style="grid-template-columns:1.6fr 1fr 150px 44px">
+      <div class="cell"><input type="text" value="${esc(p.n)}" data-pi="${i}" data-f="n" placeholder="商品名"></div>
+      <div class="cell"><select data-pi="${i}" data-f="c">${comps}</select></div>
+      <div class="cell"><select data-pi="${i}" data-f="e"><option value="0">なし</option><option value="1">あり</option></select></div>
+      <button class="del" data-pdel="${i}" aria-label="削除">✕</button></div>`).join("");
+  cfg.products.forEach((p,i)=>{
+    const c=$(`[data-pi="${i}"][data-f="c"]`); if(c) c.value = p.c||"";
+    const e=$(`[data-pi="${i}"][data-f="e"]`); if(e) e.value = p.e?"1":"0";
+  });
+  $$("[data-pi]").forEach(el=> el.addEventListener("change", ()=>{
+    const p = cfg.products[+el.dataset.pi], f = el.dataset.f;
+    p[f] = (f==="e") ? +el.value : el.value.trim();
+    saveCfg(); refreshProductSelects();
+  }));
+  $$("[data-pdel]").forEach(b=> b.addEventListener("click", ()=>{
+    if(!confirm("この商品を消しますか？（保存済みのデータは消えません）")) return;
+    cfg.products.splice(+b.dataset.pdel,1); saveCfg(); renderProducts(); refreshProductSelects();
   }));
 }
 function renderComps(){
@@ -1636,7 +1982,18 @@ function refreshCompanySelects(){
     else if(free) sel.value="__other";
   });
   refreshWorkSelects();
+  refreshProductSelects();
   recalc();
+}
+function refreshProductSelects(){
+  $$(".datarow, .itemrow").forEach(r=>{
+    const sel=$('[data-k="product"]',r); if(!sel) return;
+    const holder = r.classList.contains("itemrow") ? r.closest(".datarow") : r;
+    const cur=sel.value, free=$('[data-k="productFree"]',r);
+    sel.innerHTML = productOptions(holder? rowCompany(holder):"");
+    if(Array.from(sel.options).some(o=>o.value===cur)) sel.value=cur;
+    else if(free && free.value) sel.value="__other";
+  });
 }
 function refreshWorkSelects(){
   $$('#rows-set .datarow').forEach(r=>{
@@ -1671,6 +2028,7 @@ $$(".tab").forEach(t=> t.addEventListener("click", ()=> switchView(t.dataset.vie
 $$("[data-add]").forEach(b=> b.addEventListener("click", ()=>{ const r=addRow(b.dataset.add); const f=$("select,input",r); if(f) f.focus(); }));
 $("#add-site").addEventListener("click", ()=>{ cfg.sites.push("新しい拠点"); saveCfg(); renderSites(); renderSiteSelects(); });
 $("#add-comp").addEventListener("click", ()=>{ cfg.companies.push({n:"",l:0}); saveCfg(); renderComps(); });
+$("#add-prod").addEventListener("click", ()=>{ cfg.products=cfg.products||[]; cfg.products.push({n:"",c:"",e:0}); saveCfg(); renderProducts(); });
 $("#add-work").addEventListener("click", ()=>{ cfg.works=cfg.works||[]; cfg.works.push(""); saveCfg(); renderWorks(); });
 $("#f-date").addEventListener("change", loadDay);
 $("#f-site").addEventListener("change", loadDay);
@@ -1789,8 +2147,10 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
 }
 
 function boot(){
+  snapshotNow("起動時");
   migrateRates();
-  renderOffDays(); renderSites(); renderComps(); renderWorks(); renderSiteSelects();
+  renderBackups();
+  renderOffDays(); renderSites(); renderComps(); renderWorks(); renderProducts(); renderSiteSelects();
   buildCarriers();
   if(!$("#f-date").value)  $("#f-date").value  = todayStr();
   if(!$("#m-month").value) $("#m-month").value = monthStr();
@@ -1803,7 +2163,7 @@ function boot(){
       fsStatus();
       if(ok){
         const gotCfg = await pullSettings();
-        if(gotCfg){ renderOffDays(); renderSites(); renderComps(); renderWorks(); renderSiteSelects(); }
+        if(gotCfg){ renderOffDays(); renderSites(); renderComps(); renderWorks(); renderProducts(); renderSiteSelects(); }
         const sent = await flushDirty();
         const n = await syncFromFolder(monthStr());
         loadDay(); renderPermBar();
