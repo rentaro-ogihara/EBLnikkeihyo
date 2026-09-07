@@ -119,6 +119,17 @@ input.num.need{border-color:var(--alert);background:#fdeee9}
 .itemrow.want-exp{background:#fffdf3;border-color:#e0d4a8}
 .itemrow .expcell{display:none}
 .itemrow.want-exp .expcell{display:block}
+.itemrow .expadd{grid-column:span 2;display:block}
+.itemrow.want-exp .expadd{display:none}
+.expadd button{width:100%;min-height:46px;border:2px dashed var(--line);background:#fff;
+  border-radius:var(--r);color:var(--ink-2);font-size:15px;font-weight:700;cursor:pointer}
+.expadd button:hover{border-color:var(--warn);color:var(--warn);background:#fdf9f0}
+.expclose{border:0;background:none;color:var(--ink-3);font-size:13px;cursor:pointer;
+  padding:2px 0 0;text-decoration:underline}
+.expclose:hover{color:var(--alert)}
+@media (max-width:1000px){
+  .itemrow .expadd{grid-column:1 / -1}
+}
 @media (max-width:1000px){
   .in-head{grid-template-columns:1fr}
   .itemrow{grid-template-columns:1fr 1fr}
@@ -931,7 +942,9 @@ function addItemRow(host, data){
     <div class="cell expcell"><span class="lbl">賞味期限</span>
       <input type="text" data-k="exp" inputmode="numeric" placeholder="260430">
       <span class="expview"></span></div>
-    <div class="cell expcell"><span class="lbl">ロット</span><input type="text" data-k="lot" placeholder="ロット番号"></div>
+    <div class="cell expcell"><span class="lbl">ロット</span><input type="text" data-k="lot" placeholder="ロット番号">
+      <button type="button" class="expclose">期限・ロットをしまう</button></div>
+    <div class="expadd"><button type="button">＋ 賞味期限・ロット</button></div>
     <button class="del" aria-label="この商品を消す">✕</button>`;
 
   const dr = host.closest(".datarow");
@@ -944,14 +957,30 @@ function addItemRow(host, data){
   ["pallets","boxes","pieces","exp","lot"].forEach(k=>{
     if(data[k]!==undefined && data[k]!=="" && data[k]!==0){ const el=$(`[data-k="${k}"]`,row); if(el) el.value=data[k]; }
   });
+  if(data.exp || data.lot) row.dataset.expOn = "1";
+  if(sel.value==="__other") row.dataset.expOn = "1";
 
   const paint = ()=>{
     const p = sel.value==="__other" ? (free.value||"").trim() : sel.value;
-    const on = needsExp(p) || !!$('[data-k="exp"]',row).value || !!$('[data-k="lot"]',row).value;
+    const on = needsExp(p) || row.dataset.expOn==="1"
+            || !!$('[data-k="exp"]',row).value || !!$('[data-k="lot"]',row).value;
     row.classList.toggle("want-exp", on);
     $(".expview",row).innerHTML = expLabel($('[data-k="exp"]',row).value);
   };
-  sel.addEventListener("change", ()=>{ free.style.display = sel.value==="__other"?"block":"none"; paint(); recalc(); });
+  $(".expadd button", row).addEventListener("click", ()=>{
+    row.dataset.expOn = "1"; paint();
+    const e=$('[data-k="exp"]',row); if(e) e.focus();
+  });
+  $(".expclose", row).addEventListener("click", ()=>{
+    const e=$('[data-k="exp"]',row), l=$('[data-k="lot"]',row);
+    if((e.value||l.value) && !confirm("入力した賞味期限とロットを消して、欄をしまいます。よろしいですか？")) return;
+    e.value=""; l.value=""; row.dataset.expOn="0"; paint(); recalc();
+  });
+  sel.addEventListener("change", ()=>{
+    free.style.display = sel.value==="__other"?"block":"none";
+    if(sel.value==="__other") row.dataset.expOn = "1";
+    paint(); recalc();
+  });
   free.addEventListener("input", ()=>{ paint(); recalc(); });
   $('[data-k="exp"]',row).addEventListener("input", ()=>{ paint(); recalc(); });
   $('[data-k="exp"]',row).addEventListener("blur", e=>{
