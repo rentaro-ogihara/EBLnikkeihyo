@@ -139,6 +139,16 @@ input.num.need{border-color:var(--alert);background:#fdeee9}
   .itemrow .del{width:100%;grid-column:1 / -1}
   .itemhead{display:none}
 }
+.g-dmg{grid-template-columns:1.1fr 236px 1.25fr 88px 96px 1.25fr 44px}
+.datarow.d-in{border-left:8px solid #b45309;background:#fff8ee}
+.datarow.d-work{border-left:8px solid #6d28d9;background:#f7f2fe}
+.datarow.d-ret{border-left:8px solid #0369a1;background:#eff7fd}
+.datarow.d-out{border-left:8px solid #1a6b43;background:#eef8f2}
+.dmgtag{display:inline-block;font-size:13px;font-weight:700;padding:3px 9px;border-radius:99px;border:2px solid;white-space:nowrap}
+.dmgtag.t-in{color:#b45309;border-color:#b45309;background:#fdf3e3}
+.dmgtag.t-work{color:#6d28d9;border-color:#6d28d9;background:#f3ecfd}
+.dmgtag.t-ret{color:#0369a1;border-color:#0369a1;background:#e8f3fb}
+.dmgtag.t-out{color:#1a6b43;border-color:#1a6b43;background:#eaf6ef}
 .g-ret{grid-template-columns:1.3fr 100px 106px 1.3fr 150px 1.2fr 44px}
 
 .datarow.k-dom{border-left:8px solid var(--k-dom)}
@@ -433,7 +443,18 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
   </div>
 
   <div class="block">
-    <div class="block-hd"><span class="block-no">06</span><h2>備考</h2></div>
+    <div class="block-hd"><span class="block-no">06</span><h2>破損</h2><span class="hint">壊れた商品があった日だけ書きます</span></div>
+    <div class="block-bd">
+      <div class="rowhead g-dmg"><div>企業名</div><div>どこで</div><div>商品</div><div>箱数</div><div>ピース数</div><div>状況・処置</div></div>
+      <div class="rows" id="rows-dmg"></div>
+      <button class="addrow" data-add="dmg">＋ 破損の行を追加</button>
+      <div class="note">写真は今までどおり別で保管してください。この欄には<b>いつ・どこで・何が・いくつ</b>を残します。<br>
+      「どこで」を選ぶと行の色が変わります。あとから月次集計で、発生場所ごとに件数が出ます。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">07</span><h2>備考</h2></div>
     <div class="block-bd"><textarea class="memo" id="f-memo" placeholder="イレギュラー対応、申し送りなど"></textarea></div>
   </div>
   <button class="clear-m" id="btn-clear-m">入力を消す</button>
@@ -880,6 +901,15 @@ function expLabel(v){
   return `${y}/${m}/${d} ${tail}`;
 }
 
+/* 破損の発生場所 */
+const DMG_WHERE = ["入荷時（届いた時点で破損）","庫内作業中（自社で破損）","返品で戻ってきた分","出荷準備中に発見"];
+const DMG_CLS = {"入荷時（届いた時点で破損）":"d-in","庫内作業中（自社で破損）":"d-work",
+                 "返品で戻ってきた分":"d-ret","出荷準備中に発見":"d-out"};
+const DMG_SHORT = {"入荷時（届いた時点で破損）":"入荷時","庫内作業中（自社で破損）":"庫内作業中",
+                   "返品で戻ってきた分":"返品分","出荷準備中に発見":"出荷準備中"};
+const dmgCls = w => DMG_CLS[w] || "d-in";
+const dmgTagCls = w => ({"d-in":"t-in","d-work":"t-work","d-ret":"t-ret","d-out":"t-out"})[dmgCls(w)];
+
 const workOptions = () =>
   `<option value="">選ぶ</option>` + (cfg.works||[]).map(w=>`<option>${esc(w)}</option>`).join("")
   + `<option value="__other">（直接入力）</option>`;
@@ -915,6 +945,14 @@ const SPECS = {
     {k:"product",t:"psel",lbl:"商品名",full:1},
     {k:"payer",  t:"sel", lbl:"送料の負担", opts:["","EBL","企業"]},
     {k:"cod",    t:"cod", lbl:"着払い"}
+  ]},
+  dmg:{ grid:"g-dmg", cells:[
+    {k:"company",t:"comp",lbl:"企業名"},
+    {k:"where",  t:"sel", lbl:"どこで", opts:DMG_WHERE},
+    {k:"product",t:"psel",lbl:"商品",full:1},
+    {k:"boxes",  t:"num", lbl:"箱数"},
+    {k:"pieces", t:"num", lbl:"ピース数"},
+    {k:"note",   t:"text",lbl:"状況・処置",full:1}
   ]}
 };
 
@@ -1112,6 +1150,16 @@ function addRow(type, data){
     const csel = $('[data-k="company"]', row);
     if(csel) csel.addEventListener("change", refill);
   }
+  const wh = $('[data-k="where"]', row);
+  if(wh){
+    wh.value = data.where || DMG_WHERE[0];
+    const paintW = ()=>{
+      row.classList.remove("d-in","d-work","d-ret","d-out");
+      row.classList.add(dmgCls(wh.value));
+    };
+    wh.addEventListener("change", ()=>{ paintW(); recalc(); });
+    paintW();
+  }
   const kd = $('[data-k="kind"]', row);
   if(kd){
     kd.value = data.kind || "LOGILESS未導入";
@@ -1205,6 +1253,12 @@ function recalc(){
   if(expMiss) msgs.push(`<span class="check-wa">⚠ 賞味期限が未入力の商品が ${expMiss}件あります</span>`);
   const empties = ["set","in","ret"].filter(t=> $$("#rows-"+t+" .datarow").every(rowEmpty))
     .map(t=>({set:"セット組",in:"入荷",ret:"返品"})[t]);
+  let dmgN = 0, dmgBox = 0, dmgPc = 0;
+  $$("#rows-dmg .datarow").forEach(r=>{
+    if(rowEmpty(r)) return;
+    dmgN++; dmgBox += num(rowVal(r,"boxes")); dmgPc += num(rowVal(r,"pieces"));
+  });
+  if(dmgN) msgs.push(`<span class="check-wa">⚠ 破損 ${dmgN}件（${dmgBox?dmgBox+"箱 ":""}${dmgPc?dmgPc+"ピース":""}）</span>`);
   if(empties.length) msgs.push(`<span class="check-wa">⚠ 未入力：${empties.join("・")}（0件ならそのままでOK）</span>`);
   if(!blocked && !msgs.length) msgs.push(`<span class="check-ok">✓ 保存できます</span>`);
 
@@ -1226,7 +1280,7 @@ function recalc(){
 
 function collect(){
   const rec = { date:$("#f-date").value, site:$("#f-site").value, writer:$("#f-writer").value.trim(),
-    carriers:{}, ship:[], set:[], in:[], ret:[], memo:$("#f-memo").value, ts:new Date().toISOString() };
+    carriers:{}, ship:[], set:[], in:[], ret:[], dmg:[], memo:$("#f-memo").value, ts:new Date().toISOString() };
   CARRIERS.forEach(c=>{
     const o={};
     $$(`#carriers input[data-c="${c.id}"]`).forEach(i=> o[i.dataset.z]=num(i.value));
@@ -1237,7 +1291,7 @@ function collect(){
     rec.in.push({ company:rowCompany(r), note:rowVal(r,"note"),
                   items: $$(".itemrow", r).filter(itemFilled).map(itemData) });
   });
-  ["ship","set","ret"].forEach(t=>{
+  ["ship","set","ret","dmg"].forEach(t=>{
     $$("#rows-"+t+" .datarow").forEach(r=>{
       if(rowEmpty(r)) return;
       const o={company:rowCompany(r)};
@@ -1256,7 +1310,7 @@ function collect(){
   return rec;
 }
 function fill(rec){
-  ["ship","set","in","ret"].forEach(t=> $("#rows-"+t).innerHTML="");
+  ["ship","set","in","ret","dmg"].forEach(t=> $("#rows-"+t).innerHTML="");
   $$("#carriers input.num").forEach(i=>{ i.value=""; delete i.dataset.touched; i.classList.remove("need"); });
   $$(".mismatch").forEach(m=>m.classList.remove("show"));
   $("#f-memo").value = "";
@@ -1269,11 +1323,11 @@ function fill(rec){
       });
       checkCarrier(c.id);
     });
-    ["ship","set","in","ret"].forEach(t=> (rec[t]||[]).forEach(d=> addRow(t,d)) );
+    ["ship","set","in","ret","dmg"].forEach(t=> (rec[t]||[]).forEach(d=> addRow(t,d)) );
     $("#f-memo").value = rec.memo || "";
     if(rec.writer) $("#f-writer").value = rec.writer;
   }
-  ["ship","set","in","ret"].forEach(ensureRow);
+  ["ship","set","in","ret","dmg"].forEach(ensureRow);
   recalc();
 }
 function updateCtxSummary(){
@@ -1493,6 +1547,7 @@ async function runMonthly(){
 
   const zoneTotals = {}; CARRIERS.forEach(c=> zoneTotals[c.id]={});
   const ship = {}, aux = {}, byDay = {};
+  const dmgWhere = {}, dmgComp = {};
   const setCells = {};     // "企業||作業内容" -> {company, work, sets}
   let carrierQty=0, sheetQty=0, ovsQty=0, chtQty=0, payTotal=0;
 
@@ -1526,6 +1581,14 @@ async function runMonthly(){
     (r.in ||[]).forEach(x=>{ const c=ga(x.company||"（未記入）");
       inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces); }); });
     (r.ret||[]).forEach(x=>{ const c=ga(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces); });
+    (r.dmg||[]).forEach(x=>{
+      const wh = x.where || DMG_WHERE[0], cn = x.company || "（未記入）";
+      if(!dmgWhere[wh]) dmgWhere[wh] = {n:0,boxes:0,pieces:0};
+      dmgWhere[wh].n++; dmgWhere[wh].boxes += num(x.boxes); dmgWhere[wh].pieces += num(x.pieces);
+      if(!dmgComp[cn]) dmgComp[cn] = {n:0,boxes:0,pieces:0,wheres:{}};
+      dmgComp[cn].n++; dmgComp[cn].boxes += num(x.boxes); dmgComp[cn].pieces += num(x.pieces);
+      dmgComp[cn].wheres[wh] = (dmgComp[cn].wheres[wh]||0) + 1;
+    });
     byDay[r.date] = {carrier:dayCarrier, sheet:daySheet};
   });
 
@@ -1540,6 +1603,8 @@ async function runMonthly(){
   <div class="kpis">
     <div class="kpi"><div class="k">出荷個口（01＋02）</div><div class="v">${totalQty.toLocaleString()}<small>個口</small></div></div>
     <div class="kpi" id="kpi-bill"><div class="k">付帯作業の請求額</div><div class="v">¥0</div></div>
+    <div class="kpi" style="border-left-color:${Object.values(dmgWhere).reduce((a,d)=>a+d.n,0)?"var(--alert)":"var(--signal)"}">
+      <div class="k">破損</div><div class="v">${Object.values(dmgWhere).reduce((a,d)=>a+d.n,0)}<small>件</small></div></div>
     <div class="kpi"><div class="k">チャーター便 支払</div><div class="v" style="font-size:24px">${yen(payTotal)}</div></div>
     <div class="kpi"><div class="k">対象</div><div class="v" style="font-size:20px;font-family:var(--fs-jp)">${esc(ym)}／${site==="__all"?"全拠点":esc(site)}</div></div>
   </div>
@@ -1623,6 +1688,34 @@ async function runMonthly(){
       </table>
     </div>
   </div>
+
+  ${Object.keys(dmgComp).length ? `
+  <div class="block">
+    <div class="block-hd"><span class="block-no">破損</span><h2>破損の記録</h2>
+      <span class="hint">合計 ${Object.values(dmgWhere).reduce((a,d)=>a+d.n,0)}件</span></div>
+    <div class="block-bd tblwrap">
+      <table class="data">
+        <thead><tr><th>どこで</th><th class="n">件数</th><th class="n">箱数</th><th class="n">ピース数</th></tr></thead>
+        <tbody>${DMG_WHERE.filter(w=>dmgWhere[w]).map(w=>{const d=dmgWhere[w];return `<tr>
+          <td><span class="dmgtag ${dmgTagCls(w)}">${esc(DMG_SHORT[w]||w)}</span></td>
+          <td class="n"><b>${d.n}</b></td><td class="n">${d.boxes.toLocaleString()}</td>
+          <td class="n">${d.pieces.toLocaleString()}</td></tr>`;}).join("")}</tbody>
+        <tfoot><tr><td>合計</td>
+          <td class="n">${Object.values(dmgWhere).reduce((a,d)=>a+d.n,0)}</td>
+          <td class="n">${Object.values(dmgWhere).reduce((a,d)=>a+d.boxes,0).toLocaleString()}</td>
+          <td class="n">${Object.values(dmgWhere).reduce((a,d)=>a+d.pieces,0).toLocaleString()}</td></tr></tfoot>
+      </table>
+      <table class="data" style="margin-top:16px">
+        <thead><tr><th>企業名</th><th>内訳</th><th class="n">件数</th><th class="n">箱数</th><th class="n">ピース数</th></tr></thead>
+        <tbody>${Object.keys(dmgComp).sort((a,b)=>dmgComp[b].n-dmgComp[a].n).map(n=>{const d=dmgComp[n];return `<tr>
+          <td>${esc(n)}</td>
+          <td>${Object.keys(d.wheres).map(w=>`<span class="dmgtag ${dmgTagCls(w)}">${esc(DMG_SHORT[w]||w)} ${d.wheres[w]}</span>`).join(" ")}</td>
+          <td class="n"><b>${d.n}</b></td><td class="n">${d.boxes.toLocaleString()}</td>
+          <td class="n">${d.pieces.toLocaleString()}</td></tr>`;}).join("")}</tbody>
+      </table>
+      <div class="note">庫内作業中の破損は自社の負担、入荷時の破損は運送会社や荷主への申し入れ対象になります。件数が多い企業・場所が続くようなら原因を確認してください。</div>
+    </div>
+  </div>` : ""}
 
   <div class="block">
     <div class="block-hd"><span class="block-no">日別</span><h2>日ごとの出荷個口</h2></div>
@@ -1796,11 +1889,14 @@ function csvCompanies(){
     (r.in ||[]).forEach(x=>{ const c=g(x.company||"（未記入）");
       inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces); }); });
     (r.ret||[]).forEach(x=>{ const c=g(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces); });
+    (r.dmg||[]).forEach(x=>{ const c=g(x.company||"（未記入）");
+      c.dmgN=(c.dmgN||0)+1; c.dmgBox=(c.dmgBox||0)+num(x.boxes); c.dmgPc=(c.dmgPc||0)+num(x.pieces);
+      if(String(x.where||"").indexOf("庫内")>=0) c.dmgWork=(c.dmgWork||0)+1; });
   });
   Object.values(wcells).forEach(c=>{ m[c.company].setAmt += c.sets*rateWork(ym,c.company,c.work); });
 
   const head=["対象月","拠点","企業名","LOGILESS","出荷件数","ピック数","出荷個口(チャーター)","出荷個口(海外)","出荷個口(LOGILESS未導入)","出荷個口(計)","チャーター支払",
-    "セット数","セット組金額","入荷パレット数","入荷箱数","入荷ピース数","入荷単価","入荷金額","返品箱数","返品ピース数","返品単価","返品金額","付帯作業 請求額"];
+    "セット数","セット組金額","入荷パレット数","入荷箱数","入荷ピース数","入荷単価","入荷金額","返品箱数","返品ピース数","返品単価","返品金額","付帯作業 請求額","破損件数","うち庫内破損","破損箱数","破損ピース数"];
   const lines=[head.map(q).join(",")];
   Object.keys(m).sort().forEach(n=>{
     const c=m[n], r=rateComp(ym,n);
@@ -1808,7 +1904,8 @@ function csvCompanies(){
     lines.push([ym, site==="__all"?"全拠点":site, n, isLogiless(n)?"済":"未",
       c.cases,c.picks,c.cht,c.ovs,c.dom,c.qty,Math.round(c.pay),
       c.sets,Math.round(c.setAmt), c.inPallets,c.inBoxes,c.inPieces,r.pi,Math.round(i),
-      c.retBoxes,c.retPieces,r.pr,Math.round(p), Math.round(c.setAmt+i+p)].map(q).join(","));
+      c.retBoxes,c.retPieces,r.pr,Math.round(p), Math.round(c.setAmt+i+p),
+      c.dmgN||0, c.dmgWork||0, c.dmgBox||0, c.dmgPc||0].map(q).join(","));
   });
   lines.push("");
   lines.push(["【セット組の内訳】企業名","作業内容","セット数","単価","金額"].map(q).join(","));
@@ -1825,27 +1922,29 @@ function csvRaw(){
   const ym=$("#m-month").value, site=$("#m-site").value;
   const recs = monthRecords(ym,site).sort((a,b)=> a.date<b.date?-1:1);
   const head=["日付","年月","曜日","拠点","記入者","ブロック","区分・作業内容","企業名","件数","ピック数","出荷個数",
-    "セット数","パレット数","箱数","ピース数","商品名・詳細","賞味期限","ロット","手配会社","チャーター支払","送料負担","着払い","単価","金額","備考"];
+    "セット数","パレット数","箱数","ピース数","商品名・詳細","賞味期限","ロット","破損の発生場所","手配会社","チャーター支払","送料負担","着払い","単価","金額","備考"];
   const lines=[head.map(q).join(",")];
   const push=a=>lines.push(a.map(q).join(","));
   recs.forEach(r=>{
     const w = WD[new Date(r.date+"T00:00:00").getDay()], y2 = r.date.slice(0,7), rt = n=>rateComp(y2,n||"");
     (r.ship||[]).forEach(x=> push([r.date,y2,w,r.site,r.writer,"出荷",x.kind||"",x.company,x.cases,x.picks,x.qty,
-      "","","","",x.detail,"","",x.agent||"",x.pay||"","","","","",""]));
+      "","","","",x.detail,"","","",x.agent||"",x.pay||"","","","","",""]));
     (r.set ||[]).forEach(x=>{ const wn=x.work||x.product||"", p=rateWork(y2,x.company||"",wn);
       push([r.date,y2,w,r.site,r.writer,"セット組",wn,x.company,"",x.picks,"",x.sets,"","","",wn,"","","","",p,num(x.sets)*p,x.note]); });
     (r.in  ||[]).forEach(x=>{ const p=rt(x.company).pi;
       inItems(x).forEach(it=> push([r.date,y2,w,r.site,r.writer,"入荷・入庫","",x.company,"","","","",
-        it.pallets,it.boxes,it.pieces,it.product,it.exp||"",it.lot||"","","","","",p,num(it.boxes)*p,x.note||""])); });
+        it.pallets,it.boxes,it.pieces,it.product,it.exp||"",it.lot||"","","","","","",p,num(it.boxes)*p,x.note||""])); });
     (r.ret ||[]).forEach(x=>{ const p=rt(x.company).pr;
-      push([r.date,y2,w,r.site,r.writer,"返品","",x.company,"","","","","",x.boxes,x.pieces,x.product,"","","","",x.payer,x.cod?("着払い "+(x.codNote||"")):"",p,num(x.boxes)*p,""]); });
+      push([r.date,y2,w,r.site,r.writer,"返品","",x.company,"","","","","",x.boxes,x.pieces,x.product,"","","","","",x.payer,x.cod?("着払い "+(x.codNote||"")):"",p,num(x.boxes)*p,""]); });
+    (r.dmg ||[]).forEach(x=> push([r.date,y2,w,r.site,r.writer,"破損",DMG_SHORT[x.where]||x.where||"",x.company,
+      "","","","","",x.boxes,x.pieces,x.product,"","",x.where||"","","","","","",x.note||""]));
     CARRIERS.forEach(c=>{ const o=((r.carriers||{})[c.id])||{};
       if(!Object.values(o).some(v=>num(v))) return;
-      if(c.type==="pallet") push([r.date,y2,w,r.site,r.writer,"運送会社","",c.name,"","","","",o.pallets||0,o.boxes||0,"","","","","","","","","",""]);
+      if(c.type==="pallet") push([r.date,y2,w,r.site,r.writer,"運送会社","",c.name,"","","","",o.pallets||0,o.boxes||0,"","","","","","","","","","",""]);
       else push([r.date,y2,w,r.site,r.writer,"運送会社","",c.name,"","","","","",o.final||0,"",
-        `常温${o.normal||0}/JITBOX${o.jitbox||0}/冷凍${o.frozen||0}/冷蔵${o.chilled||0}`,"","","","","","","",""]);
+        `常温${o.normal||0}/JITBOX${o.jitbox||0}/冷凍${o.frozen||0}/冷蔵${o.chilled||0}`,"","","","","","","","",""]);
     });
-    if(r.memo) push([r.date,y2,w,r.site,r.writer,"備考","","","","","","","","","","","","","","","","","","",r.memo]);
+    if(r.memo) push([r.date,y2,w,r.site,r.writer,"備考","","","","","","","","","","","","","","","","","","","",r.memo]);
   });
   download(`日計表_明細_${ym}.csv`, lines.join("\r\n"));
 }
