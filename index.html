@@ -154,6 +154,19 @@ input.num.need{border-color:var(--alert);background:#fdeee9}
 .dmgtag.t-ret{color:#0369a1;border-color:#0369a1;background:#e8f3fb}
 .dmgtag.t-out{color:#1a6b43;border-color:#1a6b43;background:#eaf6ef}
 .g-ret{grid-template-columns:1.2fr minmax(0,1.8fr) 1.2fr 130px 1.1fr 44px}
+/* 推移 */
+.trbar{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.seg{display:inline-flex;border:2px solid var(--line);border-radius:var(--r);overflow:hidden;background:#fff}
+.seg button{border:0;background:#fff;padding:0 16px;min-height:46px;font-size:16px;font-weight:700;color:var(--ink-2);cursor:pointer}
+.seg button+button{border-left:2px solid var(--line)}
+.seg button.on{background:var(--signal);color:#fff}
+.trchart{width:100%;height:auto;display:block}
+.trtbl td.n, .trtbl th.n{white-space:nowrap}
+.trtbl td.cn{white-space:nowrap}
+.trtbl .lnk{border:0;background:none;color:var(--signal);font-weight:700;font-size:inherit;cursor:pointer;padding:0;text-decoration:underline;text-align:left}
+.trtbl select{min-height:36px;font-size:14px;padding:2px 6px;border:2px solid var(--line);border-radius:var(--r);background:#fff}
+.trtbl td.z{color:var(--ink-3)}
+.trhead{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 /* 数量の欄：企業ごとに使う単位だけ出す */
 .bulkgrp{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;width:100%}
 .bulkgrp > b{font-size:14px;color:var(--ink-2);min-width:40px;align-self:center}
@@ -391,6 +404,7 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
       <button class="tab" role="tab" data-view="input" aria-selected="true">入力</button>
       <button class="tab" role="tab" data-view="monthly" aria-selected="false">月次集計</button>
       <button class="tab" role="tab" data-view="status" aria-selected="false">記入状況</button>
+      <button class="tab" role="tab" data-view="trend" aria-selected="false">推移</button>
       <button class="tab" role="tab" data-view="settings" aria-selected="false">設定</button>
     </nav>
   </div>
@@ -512,6 +526,25 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
     </div>
   </div>
   <div id="s-out"></div>
+</section>
+
+<section class="view" id="view-trend">
+  <div class="block">
+    <div class="block-hd"><span class="block-no">推移</span><h2>企業別の入荷の推移</h2><span class="hint">金額＝入荷の作業代＋入荷検品代</span></div>
+    <div class="block-bd">
+      <div class="trbar">
+        <div class="field"><label>刻み</label>
+          <div class="seg" id="t-grain"><button data-g="day">日</button><button data-g="week">週</button><button data-g="month">月</button></div></div>
+        <div class="field"><label for="t-from">いつから</label><input type="date" id="t-from"></div>
+        <div class="field"><label for="t-to">いつまで</label><input type="date" id="t-to"></div>
+        <div class="field"><label>表に出すもの</label>
+          <div class="seg" id="t-mode"><button data-m="amt">金額</button><button data-m="qty">入荷量</button></div></div>
+        <button class="btn btn-primary btn-sm" id="t-run">表示する</button>
+      </div>
+      <div class="note">週は日曜日始まりです。金額は、それぞれの月に月次集計で入れた単価で計算します（単価が入っていない月は¥0）。入荷量の単位は、表の中で企業ごとに選べます。</div>
+    </div>
+  </div>
+  <div id="t-out"></div>
 </section>
 
 <section class="view" id="view-settings">
@@ -2210,6 +2243,176 @@ function csvRaw(){
   download(`日計表_明細_${ym}.csv`, lines.join("\r\n"));
 }
 
+/* ============================================================
+   推移：企業別の入荷の金額（入荷代＋入荷検品代）と入荷量
+   ============================================================ */
+const K_TREND = "ebl_nikkei_trend_v1";   // この端末だけの表示の好み（刻み・表示・単位の選択）
+let TR = {grain:"month", mode:"amt", unitBy:{}, comp:""};
+try{ Object.assign(TR, JSON.parse(Store.get(K_TREND) || "{}")); }catch(e){}
+TR.comp = "";
+function saveTR(){ try{ Store.set(K_TREND, JSON.stringify({grain:TR.grain, mode:TR.mode, unitBy:TR.unitBy})); }catch(e){} }
+const isoD = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const dOf = ds => new Date(ds+"T00:00:00");
+function addDays(ds, n){ const d = dOf(ds); d.setDate(d.getDate()+n); return isoD(d); }
+function weekStart(ds){ const d = dOf(ds); d.setDate(d.getDate()-d.getDay()); return isoD(d); }   // 日曜始まり
+function bucketOf(ds, g){ return g==="month" ? ds.slice(0,7) : g==="week" ? weekStart(ds) : ds; }
+function bucketList(from, to, g){
+  const out = [];
+  if(g==="month"){ let [y,m] = from.slice(0,7).split("-").map(Number); const end = to.slice(0,7);
+    for(let i=0;i<600;i++){ const k = y+"-"+String(m).padStart(2,"0"); if(k > end) break; out.push(k); m++; if(m>12){ m=1; y++; } } return out; }
+  let d = g==="week" ? weekStart(from) : from;
+  for(let i=0;i<2000 && d <= to; i++){ out.push(d); d = addDays(d, g==="week" ? 7 : 1); }
+  return out;
+}
+function bucketLabel(k, g){
+  if(g==="month") return k.slice(2,4)+"/"+String(Number(k.slice(5,7)));
+  const m = Number(k.slice(5,7)), d = Number(k.slice(8,10));
+  return g==="week" ? `${m}/${d}週` : `${m}/${d}`;
+}
+function bucketLong(k, g){
+  if(g==="month") return k.slice(0,4)+"年"+Number(k.slice(5,7))+"月";
+  const m = Number(k.slice(5,7)), d = Number(k.slice(8,10));
+  if(g==="week"){ const e = addDays(k,6); return `${m}/${d}〜${Number(e.slice(5,7))}/${Number(e.slice(8,10))}`; }
+  return `${m}/${d}（${WD[dOf(k).getDay()]}）`;
+}
+function defaultRange(g){
+  const t = todayStr();
+  if(g==="day")  return {from:addDays(t,-30), to:t};
+  if(g==="week") return {from:addDays(weekStart(t),-7*11), to:t};
+  const d = dOf(t); d.setMonth(d.getMonth()-11); d.setDate(1); return {from:isoD(d), to:t};
+}
+function monthsBetween(from, to){ return bucketList(from, to, "month"); }
+
+/* 棒グラフ（SVG）：値の大きい棒と最後の棒に数字を出す */
+function barChart(keys, vals, g, fmt, title){
+  const W=760, H=230, L=64, R=16, T=34, B=34, n=Math.max(1,keys.length);
+  const max = Math.max(1, ...vals), step = (W-L-R)/n, bw = Math.max(2, Math.min(38, step*0.7));
+  const nice = v=>{ const p = Math.pow(10, Math.floor(Math.log10(v))); const f = v/p; return (f<=1?1:f<=2?2:f<=5?5:10)*p; };
+  const top = nice(max), y = v=> T + (H-T-B) * (1 - v/top);
+  const every = Math.ceil(n / 12), imax = vals.indexOf(Math.max(...vals));
+  let sv = `<svg class="trchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">`;
+  sv += `<text x="${L}" y="18" font-size="14" font-weight="700" fill="var(--ink)">${esc(title)}</text>`;
+  [0, top/2, top].forEach(v=>{ sv += `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line-2)"/>`
+    + `<text x="${L-8}" y="${y(v)+4}" font-size="11" text-anchor="end" fill="var(--ink-3)">${esc(fmt(v,true))}</text>`; });
+  keys.forEach((k,i)=>{
+    const x = L + step*i + (step-bw)/2, v = vals[i], h = Math.max(0, (H-B) - y(v));
+    sv += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${h}" rx="2" fill="var(--signal)" fill-opacity="${i===n-1?1:0.55}"><title>${esc(bucketLong(k,g))}：${esc(fmt(v))}</title></rect>`;
+    if(v && (i===imax || i===n-1)) sv += `<text x="${x+bw/2}" y="${y(v)-5}" font-size="11" text-anchor="middle" fill="var(--ink)">${esc(fmt(v))}</text>`;
+    if(i % every === 0 || i===n-1) sv += `<text x="${x+bw/2}" y="${H-12}" font-size="11" text-anchor="middle" fill="var(--ink-2)">${esc(bucketLabel(k,g))}</text>`;
+  });
+  return sv + `</svg>`;
+}
+const fmtYen = (v, axis)=> axis && v>=10000 ? "¥"+(Math.round(v/1000)/10)+"万" : yen(v);
+const fmtNum = u => (v, axis)=> (axis && v>=10000 ? (Math.round(v/1000)/10)+"万" : Math.round(v).toLocaleString()) + (axis? "" : " "+u);
+
+async function runTrend(){
+  const g = TR.grain;
+  $$("#t-grain button").forEach(b=> b.classList.toggle("on", b.dataset.g===g));
+  $$("#t-mode button").forEach(b=> b.classList.toggle("on", b.dataset.m===TR.mode));
+  if(!$("#t-from").value || !$("#t-to").value){ const r = defaultRange(g); $("#t-from").value = r.from; $("#t-to").value = r.to; }
+  let from = $("#t-from").value, to = $("#t-to").value;
+  if(from > to){ [from, to] = [to, from]; $("#t-from").value = from; $("#t-to").value = to; }
+  const months = monthsBetween(from, to);
+  if(FS.dir){
+    $("#t-out").innerHTML = `<div class="block"><div class="loading">共有フォルダから読み込んでいます…（${months.length}か月分）</div></div>`;
+    for(const ym of months) await syncFromFolder(ym);
+    await pushRates();
+  }
+  const keys = bucketList(from, to, g);
+  const D = {};            // 企業 → 期間 → {amt, q}
+  Object.values(records).forEach(r=>{
+    if(!r.date || r.date < from || r.date > to || cfg.sites.indexOf(r.site) < 0) return;
+    const ym = r.date.slice(0,7), b = bucketOf(r.date, g);
+    (r.in||[]).forEach(x=>{
+      const n = x.company || "（未記入）", rr = rateComp(ym, n), KL = inspList(n, "in");
+      const c = (D[n] = D[n] || {}), cell = (c[b] = c[b] || {amt:0, q:{}});
+      inItems(x).forEach(it=>{
+        cell.amt += itemAmt(it, rr) + KL.reduce((s,id)=> s + qty(it,id)*rv(rr,"ki",id), 0);
+        addQ(cell.q, it);
+      });
+    });
+  });
+  const names = Object.keys(D);
+  const totAmt = n => keys.reduce((s,k)=> s + ((D[n][k]||{}).amt||0), 0);
+  const totQ = (n,id) => keys.reduce((s,k)=> s + num(((D[n][k]||{}).q||{})[id]), 0);
+  names.sort((a,b)=> totAmt(b)-totAmt(a) || (a<b?-1:1));
+  const unitOf = n=>{
+    const pick = TR.unitBy[n];
+    if(pick && units().some(u=> u.id===pick)) return pick;
+    let best = "boxes", bv = -1; units().forEach(u=>{ const v = totQ(n,u.id); if(v > bv){ bv = v; best = u.id; } });
+    return best;
+  };
+  if(!names.length){
+    $("#t-out").innerHTML = `<div class="block"><div class="block-bd">この期間の入荷の記録はありません。</div></div>`; return;
+  }
+  if(TR.comp && D[TR.comp]) return renderTrendDetail(TR.comp, keys, g, D, unitOf);
+  TR.comp = "";
+  const sumAmt = keys.map(k=> names.reduce((s,n)=> s + ((D[n][k]||{}).amt||0), 0));
+  const qtyMode = TR.mode === "qty";
+  const val = (n,k)=> qtyMode ? num(((D[n][k]||{}).q||{})[unitOf(n)]) : ((D[n][k]||{}).amt||0);
+  const show = (v)=> qtyMode ? v.toLocaleString() : yen(v);
+  $("#t-out").innerHTML = `
+  <div class="block">
+    <div class="block-hd"><span class="block-no">合計</span><h2>全企業の入荷の金額</h2><span class="hint">${esc(bucketLong(keys[0],g))} 〜 ${esc(bucketLong(keys[keys.length-1],g))}</span></div>
+    <div class="block-bd">${barChart(keys, sumAmt, g, fmtYen, "入荷の金額の合計（入荷代＋入荷検品代）")}</div>
+  </div>
+  <div class="block">
+    <div class="block-hd"><span class="block-no">企業別</span><h2>${qtyMode ? "企業別の入荷量" : "企業別の入荷の金額"}</h2><span class="hint">企業名を押すと、その企業の推移を詳しく見られます</span></div>
+    <div class="block-bd tblwrap">
+      <table class="data trtbl">
+        <thead><tr><th>企業名</th>${qtyMode ? "<th>単位</th>" : ""}${keys.map(k=>`<th class="n">${esc(bucketLabel(k,g))}</th>`).join("")}<th class="n">合計</th></tr></thead>
+        <tbody>${names.map(n=>{
+          const vals = keys.map(k=> val(n,k)), tot = vals.reduce((a,b)=>a+b,0), mx = Math.max(1,...vals);
+          return `<tr><td class="cn"><button class="lnk" data-tcomp="${esc(n)}">${esc(n)}</button></td>
+            ${qtyMode ? `<td><select data-tunit="${esc(n)}">${units().map(u=>`<option value="${esc(u.id)}"${u.id===unitOf(n)?" selected":""}>${esc(u.n)}</option>`).join("")}</select></td>` : ""}
+            ${vals.map(v=> v ? `<td class="n" style="background:rgba(15,76,129,${(0.05+0.25*v/mx).toFixed(2)})">${show(v)}</td>` : `<td class="n z">—</td>`).join("")}
+            <td class="n"><b>${show(tot)}</b></td></tr>`;
+        }).join("")}</tbody>
+        ${qtyMode ? "" : `<tfoot><tr><td>合計</td>${sumAmt.map(v=>`<td class="n">${yen(v)}</td>`).join("")}<td class="n">${yen(sumAmt.reduce((a,b)=>a+b,0))}</td></tr></tfoot>`}
+      </table>
+    </div>
+  </div>`;
+  $$("[data-tcomp]").forEach(b=> b.addEventListener("click", ()=>{ TR.comp = b.dataset.tcomp; renderTrendDetail(TR.comp, keys, g, D, unitOf); window.scrollTo(0, $("#t-out").offsetTop - 80); }));
+  $$("[data-tunit]").forEach(sel=> sel.addEventListener("change", ()=>{ TR.unitBy[sel.dataset.tunit] = sel.value; saveTR(); runTrend(); }));
+}
+function renderTrendDetail(n, keys, g, D, unitOf){
+  const u = unitOf(n), c = D[n] || {};
+  const amts = keys.map(k=> (c[k]||{}).amt || 0), qs = keys.map(k=> num(((c[k]||{}).q||{})[u]));
+  const others = units().filter(x=> x.id!==u && keys.some(k=> num(((c[k]||{}).q||{})[x.id])));
+  $("#t-out").innerHTML = `
+  <div class="block">
+    <div class="block-hd trhead"><span class="block-no">企業</span><h2>${esc(n)}</h2>
+      <button class="btn btn-ghost btn-sm" id="t-back">← 全企業の一覧へ</button></div>
+    <div class="block-bd">
+      <div class="field" style="margin-bottom:10px"><label>入荷量の単位</label>
+        <select id="t-dunit">${units().map(x=>`<option value="${esc(x.id)}"${x.id===u?" selected":""}>${esc(x.n)}</option>`).join("")}</select></div>
+      ${barChart(keys, amts, g, fmtYen, "入荷の金額（入荷代＋入荷検品代）")}
+      ${barChart(keys, qs, g, fmtNum(unitName(u)), "入荷量（"+unitName(u)+"）")}
+    </div>
+  </div>
+  <div class="block">
+    <div class="block-hd"><span class="block-no">内訳</span><h2>期間ごとの数字</h2></div>
+    <div class="block-bd tblwrap">
+      <table class="data trtbl">
+        <thead><tr><th>期間</th><th class="n">入荷の金額</th><th class="n">入荷量（${esc(unitName(u))}）</th>${others.map(x=>`<th class="n">${esc(x.n)}</th>`).join("")}</tr></thead>
+        <tbody>${keys.map((k,i)=>`<tr><td>${esc(bucketLong(k,g))}</td>
+          <td class="n${amts[i]?"":" z"}">${amts[i]? yen(amts[i]) : "—"}</td>
+          <td class="n${qs[i]?"":" z"}">${qs[i]? qs[i].toLocaleString() : "—"}</td>
+          ${others.map(x=>{ const v = num(((c[k]||{}).q||{})[x.id]); return `<td class="n${v?"":" z"}">${v? v.toLocaleString() : "—"}</td>`; }).join("")}</tr>`).join("")}</tbody>
+        <tfoot><tr><td>合計</td><td class="n">${yen(amts.reduce((a,b)=>a+b,0))}</td><td class="n">${qs.reduce((a,b)=>a+b,0).toLocaleString()}</td>
+          ${others.map(x=>`<td class="n">${keys.reduce((s,k)=> s+num(((c[k]||{}).q||{})[x.id]),0).toLocaleString()}</td>`).join("")}</tr></tfoot>
+      </table>
+    </div>
+  </div>`;
+  $("#t-back").addEventListener("click", ()=>{ TR.comp = ""; runTrend(); });
+  $("#t-dunit").addEventListener("change", e=>{ TR.unitBy[n] = e.target.value; saveTR(); renderTrendDetail(n, keys, g, D, unitOf); });
+}
+$$("#t-grain button").forEach(b=> b.addEventListener("click", ()=>{
+  TR.grain = b.dataset.g; saveTR(); const r = defaultRange(TR.grain); $("#t-from").value = r.from; $("#t-to").value = r.to; runTrend();
+}));
+$$("#t-mode button").forEach(b=> b.addEventListener("click", ()=>{ TR.mode = b.dataset.m; TR.comp = ""; saveTR(); runTrend(); }));
+$("#t-run").addEventListener("click", ()=> runTrend());
+
 async function runStatus(){
   const ym = $("#s-month").value;
   if(FS.dir){ $("#s-out").innerHTML = `<div class="block"><div class="loading">共有フォルダから読み込んでいます…</div></div>`; await syncFromFolder(ym); }
@@ -2447,6 +2650,7 @@ function switchView(v){
   document.body.classList.remove("hide-top");
   if(v==="monthly") runMonthly();
   if(v==="status")  runStatus();
+  if(v==="trend")   runTrend();
 }
 $$(".tab").forEach(t=> t.addEventListener("click", ()=> switchView(t.dataset.view)));
 
