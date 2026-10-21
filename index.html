@@ -545,7 +545,7 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
           <div class="seg" id="t-mode"><button data-m="amt">金額</button><button data-m="qty">入荷量</button></div></div>
         <button class="btn btn-primary btn-sm" id="t-run">表示する</button>
       </div>
-      <div class="note">週は日曜日始まりです。金額は、それぞれの月に月次集計で入れた単価で計算します（単価が入っていない月は¥0）。入荷量の単位は、表の中で企業ごとに選べます。出荷は、区分「LOGILESS未導入」の行だけを数えます（単位は設定の「出荷の単位」）。</div>
+      <div class="note">週は日曜日始まりです。金額は、それぞれの月に月次集計で入れた単価で計算します（単価が入っていない月は¥0）。入荷量の単位は、表の中で企業ごとに選べます。出荷は、区分「LOGILESS未導入」の行だけを数えます（単位は設定の「出荷の単位」。「ピック数に掛ける」企業はピック数）。</div>
     </div>
   </div>
   <div id="t-out"></div>
@@ -839,7 +839,10 @@ const RK_LEG = {in:{pallets:"pp",boxes:"pi",balls:"pb",pieces:"pc"}, ret:{boxes:
 /* 出荷：区分「LOGILESS未導入」の行の出荷個数に、企業ごとの単価（キー sh）を掛ける。単位は企業ごとの設定（su） */
 const SHIP_PRICED = "LOGILESS未導入";
 function shipUnit(n){ const c = n ? compCfg(n) : null; const id = c && c.su; return (id && units().some(u=> u.id===id)) ? id : ""; }
-function shipUnitName(n){ const id = shipUnit(n); return id ? unitName(id) : "個"; }
+/* 出荷の単価を掛ける数：企業ごとの設定 sb（"qty"＝出荷個数〈既定〉／"picks"＝ピック数） */
+function shipBasis(n){ const c = n ? compCfg(n) : null; return c && c.sb==="picks" ? "picks" : "qty"; }
+function shipCount(x, n){ return shipBasis(n)==="picks" ? num(x.picks) : num(x.qty); }
+function shipUnitName(n){ if(shipBasis(n)==="picks") return "ピック"; const id = shipUnit(n); return id ? unitName(id) : "個"; }
 function rkey(kind, id){ return (RK_LEG[kind]||{})[id] || (kind+"_"+id); }
 /* 入力行の単位欄を、企業に合わせて出し分ける */
 function unitCells(o){
@@ -856,7 +859,7 @@ function readUnits(row, o, orig){
 function refreshShipUnits(){
   $$("#rows-ship .datarow").forEach(r=>{
     const n = rowCompany(r), el = $(".qunit", r);
-    if(el) el.textContent = n ? `（${shipUnitName(n)}）` : "";
+    if(el) el.textContent = !n ? "" : shipBasis(n)==="picks" ? "（単価はピック数に）" : `（${shipUnitName(n)}）`;
   });
 }
 function refreshUnits(){
@@ -1791,7 +1794,7 @@ async function runMonthly(){
     let daySheet = 0;
     (r.ship||[]).forEach(x=>{
       const n=x.company||"（未記入）", k=x.kind||"LOGILESS未導入", q=num(x.qty), c=gs(n);
-      if(k===SHIP_PRICED && q){ const a=ga(n); a.shipQ=(a.shipQ||0)+q; }
+      if(k===SHIP_PRICED && shipCount(x,n)){ const a=ga(n); a.shipQ=(a.shipQ||0)+shipCount(x,n); }
       c.cases+=num(x.cases); c.picks+=num(x.picks); c.qty+=q;
       c.kinds[k]=(c.kinds[k]||0)+q;
       if(k==="海外出荷") ovsQty+=q;
@@ -1909,7 +1912,7 @@ async function runMonthly(){
     <div class="block-hd"><span class="block-no">請求 4</span><h2>出荷の単価</h2><span class="hint">区分「LOGILESS未導入」の出荷個数 × 単価</span></div>
     <div class="block-bd">
       <div class="tblwrap" id="ship-table"></div>
-      <div class="note">単価は企業ごとに1つで、区分が「LOGILESS未導入」の行の出荷個数に掛けます（チャーター便・海外出荷の行は対象外）。単位は「設定」タブの企業一覧の「出荷の単位」です。ここの金額は上の「企業ごとの請求額」に足されます。「先月の単価を引き継ぐ」で出荷の単価も引き継ぎます。</div>
+      <div class="note">単価は企業ごとに1つで、区分が「LOGILESS未導入」の行の出荷個数に掛けます（チャーター便・海外出荷の行は対象外）。「設定」で「ピック数に掛ける」を選んだ企業は、ピック数に掛けます。単位は「設定」タブの企業一覧の「出荷の単位」です。ここの金額は上の「企業ごとの請求額」に足されます。「先月の単価を引き継ぐ」で出荷の単価も引き継ぎます。</div>
     </div>
   </div>
 
@@ -2073,9 +2076,9 @@ function renderAux(){
   /* --- 表4：出荷（区分「LOGILESS未導入」の出荷個数 × 企業ごとの単価） --- */
   const shipNames = names.filter(n=> num(aux[n].shipQ));
   $("#ship-table").innerHTML = shipNames.length ? `<table class="data">
-    <thead><tr><th>企業名</th><th>単位</th><th class="n">出荷個数</th><th class="n">単価</th><th class="n">金額</th></tr></thead>
+    <thead><tr><th>企業名</th><th>単位</th><th class="n">数（出荷個数／ピック数）</th><th class="n">単価</th><th class="n">金額</th></tr></thead>
     <tbody>${shipNames.map(n=>{ const r=rateComp(ym,n);
-      return `<tr data-comp="${esc(n)}"><td>${esc(n)}</td><td>${shipUnit(n) ? esc(shipUnitName(n)) : '<span style="color:var(--warn)">未設定</span>'}</td>
+      return `<tr data-comp="${esc(n)}"><td>${esc(n)}</td><td>${shipBasis(n)==="picks" ? "ピック数" : shipUnit(n) ? esc(shipUnitName(n)) : '<span style="color:var(--warn)">未設定</span>'}</td>
         <td class="n">${num(aux[n].shipQ).toLocaleString()}</td>
         <td class="n"><input class="rate" inputmode="numeric" data-f="sh" value="${num(r.sh)||""}" placeholder="0"></td>
         <td class="n" data-samt><b>${yen(shipAmt(aux[n],r))}</b></td></tr>`; }).join("")}</tbody>
@@ -2190,7 +2193,7 @@ function csvCompanies(){
     carrierBoxes += recCarrierBoxes(r);
     seinoPallets += num(((r.carriers||{}).seino||{}).pallets);
     (r.ship||[]).forEach(x=>{ const n=x.company||"（未記入）",k=x.kind||"LOGILESS未導入",qy=num(x.qty),c=g(n);
-      if(k===SHIP_PRICED) c.shipQ=(c.shipQ||0)+qy;
+      if(k===SHIP_PRICED) c.shipQ=(c.shipQ||0)+shipCount(x,n);
       c.cases+=num(x.cases); c.picks+=num(x.picks); c.qty+=qy;
       if(isCharter(k)){ c.cht+=qy; c.pay+=num(x.pay); } else if(k==="海外出荷") c.ovs+=qy; else c.dom+=qy; });
     (r.set||[]).forEach(x=>{
@@ -2219,7 +2222,7 @@ function csvCompanies(){
     ...CR.map(u=>"返品"+u.n+"数"), ...CR.map(u=>"返品"+u.n+"単価"), "返品金額",
     ...[].concat(...KI.map(u=> ["入荷検品"+u.n+"数","入荷検品"+u.n+"単価"])), ...[].concat(...KR.map(u=> ["返品検品"+u.n+"数","返品検品"+u.n+"単価"])),
     ...((KI.length||KR.length)? ["検品金額"] : []),
-    "出荷(LOGILESS未導入)の単位","出荷(LOGILESS未導入)個数","出荷単価","出荷金額",
+    "出荷(LOGILESS未導入)の単位","出荷(LOGILESS未導入)の数","出荷単価","出荷金額",
     "請求額 合計","破損件数","うち庫内破損","破損箱数","破損ピース数"];
   const lines=[head.map(q).join(",")];
   Object.keys(m).sort().forEach(n=>{
@@ -2265,7 +2268,7 @@ function csvRaw(){
     const w = WD[new Date(r.date+"T00:00:00").getDay()], y2 = r.date.slice(0,7), rt = n=>rateComp(y2,n||"");
     (r.ship||[]).forEach(x=>{ const pr=(x.kind||SHIP_PRICED)===SHIP_PRICED, sp=pr ? num(rt(x.company).sh) : 0;
       push([r.date,y2,w,r.site,r.writer,"出荷",x.kind||"",x.company,x.cases,x.picks,x.qty,
-      "","","","",x.detail,"","","",x.agent||"",x.pay||"","","",pr&&sp ? sp+"／"+shipUnitName(x.company) : "",pr&&sp ? num(x.qty)*sp : "",""]); });
+      "","","","",x.detail,"","","",x.agent||"",x.pay||"","","",pr&&sp ? sp+"／"+shipUnitName(x.company) : "",pr&&sp ? shipCount(x,x.company)*sp : "",""]); });
     (r.set ||[]).forEach(x=>{ const wn=x.work||x.product||"", p=rateWork(y2,x.company||"",wn);
       push([r.date,y2,w,r.site,r.writer,"セット組",wn,x.company,"",x.picks,"",x.sets,"","","",wn,"","","","",p,num(x.sets)*p,x.note]); });
     const allU = units().map(u=>u.id), inC = (ids,id)=> ids.indexOf(id)>=0;
@@ -2379,11 +2382,11 @@ async function runTrend(){
     if(!r.date || r.date < from || r.date > to || cfg.sites.indexOf(r.site) < 0) return;
     const ym = r.date.slice(0,7), b = bucketOf(r.date, g);
     if(SHIP) (r.ship||[]).forEach(x=>{
-      if((x.kind || SHIP_PRICED) !== SHIP_PRICED || !num(x.qty)) return;     // 金額を出すのは区分「LOGILESS未導入」の行だけ
-      const n = x.company || "（未記入）", u = shipUnit(n) || "__ship";
+      const n = x.company || "（未記入）", cnt = shipCount(x, n), u = shipBasis(n)==="picks" ? "__picks" : (shipUnit(n) || "__ship");
+      if((x.kind || SHIP_PRICED) !== SHIP_PRICED || !cnt) return;     // 金額を出すのは区分「LOGILESS未導入」の行だけ
       const c = (D[n] = D[n] || {}), cell = (c[b] = c[b] || {amt:0, q:{}});
-      cell.amt += num(x.qty) * num(rateComp(ym, n).sh);
-      cell.q[u] = (cell.q[u]||0) + num(x.qty);
+      cell.amt += cnt * num(rateComp(ym, n).sh);
+      cell.q[u] = (cell.q[u]||0) + cnt;
     });
     if(!SHIP) (r.in||[]).forEach(x=>{
       const n = x.company || "（未記入）", rr = rateComp(ym, n), KL = inspList(n, "in");
@@ -2399,7 +2402,7 @@ async function runTrend(){
   const totQ = (n,id) => keys.reduce((s,k)=> s + num(((D[n][k]||{}).q||{})[id]), 0);
   names.sort((a,b)=> totAmt(b)-totAmt(a) || (a<b?-1:1));
   const unitOf = n=>{
-    if(SHIP) return shipUnit(n) || "__ship";
+    if(SHIP) return shipBasis(n)==="picks" ? "__picks" : (shipUnit(n) || "__ship");
     const pick = TR.unitBy[n];
     if(pick && units().some(u=> u.id===pick)) return pick;
     let best = "boxes", bv = -1; units().forEach(u=>{ const v = totQ(n,u.id); if(v > bv){ bv = v; best = u.id; } });
@@ -2447,7 +2450,7 @@ function renderTrendDetail(n, keys, g, D, unitOf, SHIP){
     <div class="block-hd trhead"><span class="block-no">企業</span><h2>${esc(n)}</h2>
       <button class="btn btn-ghost btn-sm" id="t-back">← 全企業の一覧へ</button></div>
     <div class="block-bd">
-      ${SHIP ? `<div class="note" style="margin:0 0 10px">出荷量は、区分「LOGILESS未導入」の行の出荷個数です（単位は設定の「出荷の単位」）。</div>`
+      ${SHIP ? `<div class="note" style="margin:0 0 10px">出荷量は、区分「LOGILESS未導入」の行の出荷個数です（単位は設定の「出荷の単位」。「ピック数に掛ける」企業はピック数）。</div>`
              : `<div class="field" style="margin-bottom:10px"><label>入荷量の単位</label>
         <select id="t-dunit">${units().map(x=>`<option value="${esc(x.id)}"${x.id===u?" selected":""}>${esc(x.n)}</option>`).join("")}</select></div>`}
       ${barChart(keys, amts, g, fmtYen, SHIP ? "出荷の金額（LOGILESS未導入の出荷個数×単価）" : "入荷の金額（入荷代＋入荷検品代）")}
@@ -2628,7 +2631,13 @@ function renderComps(){
       ${grp(c,i,"ui","入荷で入力")}${grp(c,i,"ur","返品で入力")}${grp(c,i,"ki","入荷検品")}${grp(c,i,"kr","返品検品")}
       <div class="g"><b>出荷の単位</b><select data-sui="${i}"><option value="">選ぶ</option>${U.map(u=>`<option value="${esc(u.id)}"${c.su===u.id?" selected":""}>${esc(u.n)}</option>`).join("")}</select>
         <span style="color:var(--ink-3)">出荷個数を数える単位</span></div>
+      <div class="g"><b>出荷の単価</b><select data-sbi="${i}"><option value="qty"${c.sb!=="picks"?" selected":""}>出荷個数に掛ける</option><option value="picks"${c.sb==="picks"?" selected":""}>ピック数に掛ける</option></select>
+        <span style="color:var(--ink-3)">区分「LOGILESS未導入」の行だけ</span></div>
     </div></div>`).join("");
+  $$("[data-sbi]").forEach(el=> el.addEventListener("change", ()=>{
+    const c = cfg.companies[+el.dataset.sbi]; if(el.value==="picks") c.sb = "picks"; else delete c.sb;
+    saveCfg(); recalc();
+  }));
   $$("[data-sui]").forEach(el=> el.addEventListener("change", ()=>{
     const c = cfg.companies[+el.dataset.sui]; if(el.value) c.su = el.value; else delete c.su;
     saveCfg(); recalc();
