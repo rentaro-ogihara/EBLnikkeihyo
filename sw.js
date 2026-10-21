@@ -3,7 +3,7 @@
    方針：HTMLはネット優先（更新をすぐ取り込む）／落ちていればキャッシュ。
          アイコン等はキャッシュ優先。 */
 
-const CACHE = "ebl-nikkei-v14";
+const CACHE = "ebl-nikkei-v15";
 const SHELL = [
   "./",
   "./index.html",
