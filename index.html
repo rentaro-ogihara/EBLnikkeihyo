@@ -150,19 +150,24 @@ input.num.need{border-color:var(--alert);background:#fdeee9}
 .dmgtag.t-ret{color:#0369a1;border-color:#0369a1;background:#e8f3fb}
 .dmgtag.t-out{color:#1a6b43;border-color:#1a6b43;background:#eaf6ef}
 .g-ret{grid-template-columns:1.3fr 100px 106px 1.3fr 150px 1.2fr 44px}
-/* 検品数（ケース・ボール・ピース）：入荷の商品行と返品の行の下に1段 */
-.inspline{grid-column:1 / -1;display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;
+/* ボール数：ボール検品を使う企業の入荷・返品の行にだけ出す */
+.ballline{grid-column:1 / -1;display:none;align-items:center;gap:10px;flex-wrap:wrap;
   border-top:1.5px dashed #b6d7de;padding-top:8px;margin-top:2px}
-.inspline .il{font-size:13px;font-weight:700;color:#0e7490;letter-spacing:.06em;min-width:64px}
-.inspline label{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink-2);font-weight:700}
-.inspline input.num{width:92px;min-height:42px;font-size:17px;padding:6px 8px}
-.datarow .cell.inspcell{grid-column:1 / -1}
-@media (max-width:1000px){
-  .inspline{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .inspline .il{grid-column:1 / -1}
-  .inspline label{flex-direction:column;align-items:stretch;gap:4px;font-size:13px}
-  .inspline input.num{width:100%}
-}
+.use-ball .ballline{display:flex}
+.ballline .il{font-size:14px;font-weight:700;color:#0e7490}
+.ballline input.num{width:110px;min-height:42px;font-size:17px;padding:6px 8px}
+.ballline .bh{font-size:13px;color:var(--ink-3)}
+.datarow .cell.ballcell{grid-column:1 / -1;display:none}
+.datarow.use-ball .cell.ballcell{display:block}
+/* 設定：企業ごとの検品の単位 */
+.compset{border-bottom:1.5px solid var(--line-2);padding:4px 0 10px}
+.compset .setrow{border-bottom:0}
+.inspset{display:flex;flex-wrap:wrap;gap:6px 20px;padding:0 6px;font-size:14px;color:var(--ink-2)}
+.inspset .g{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.inspset b{color:#0e7490;font-size:13px;letter-spacing:.04em}
+.inspset label{display:flex;align-items:center;gap:4px;cursor:pointer}
+.inspset input{width:20px;height:20px;accent-color:#0e7490}
+
 
 .datarow.k-dom{border-left:8px solid var(--k-dom)}
 .datarow.k-ovs{border-left:8px solid var(--k-ovs);background:#fff8ee}
@@ -558,7 +563,7 @@ table.data input.rate:focus{border-color:var(--signal);background:#f4f8fd}
       <div class="setrow sethead"><div>企業名</div><div>LOGILESS</div><div></div></div>
       <div id="comp-list"></div>
       <button class="addrow" id="add-comp">＋ 企業を追加</button>
-      <div class="note">ここは企業名の一覧だけです。<b>付帯作業の単価は、月次集計の画面で月ごとに入力します。</b><br>
+      <div class="note">企業ごとに<b>入荷検品・返品検品で使う単位</b>（ケース＝箱数／ボール／ピース）にチェックを入れると、入荷・返品の記録から検品数が自動で数えられます。ボールにチェックを入れた企業だけ、入力画面に「ボール数」の欄が出ます。<b>単価は、月次集計の画面で月ごとに入力します。</b><br>
       <b>ここで登録した内容は、共有フォルダを通じてほかのパソコンにも自動で行き渡ります。</b>1台で登録すれば、ほかの端末は共有フォルダにつなぐだけで同じ一覧になります。</div>
     </div>
   </div>
@@ -741,6 +746,17 @@ function toast(msg, ng){
   const t=$("#toast"); t.textContent=msg; t.className="toast show"+(ng?" ng":"");
   clearTimeout(t._t); t._t=setTimeout(()=>{ t.className="toast"; }, 2800);
 }
+/* 企業ごとの検品の単位（設定タブで選ぶ）。ki＝入荷検品、kr＝返品検品。c＝ケース(箱数)・b＝ボール・p＝ピース */
+function inspUse(n){
+  const c = cfg.companies.find(x=>x.n===n) || {};
+  const f = o => ({c:!!(o&&o.c), b:!!(o&&o.b), p:!!(o&&o.p)});
+  return {in:f(c.ki), ret:f(c.kr)};
+}
+function ballUse(n, t){ return !!n && inspUse(n)[t].b; }
+function refreshBalls(){
+  $$("#rows-in .inrow").forEach(r=> r.classList.toggle("use-ball", ballUse(rowCompany(r),"in")));
+  $$("#rows-ret .datarow").forEach(r=> r.classList.toggle("use-ball", ballUse(rowCompany(r),"ret")));
+}
 function isLogiless(n){ const c=cfg.companies.find(x=>x.n===n); return !!(c && c.l); }
 
 const KINDS = ["チャーター便","西濃メガチャーター便","海外出荷","LOGILESS未導入"];
@@ -780,6 +796,12 @@ function setRateWork(ym, comp, w, v){
 const INSP_F = ["kic","kib","kip","krc","krb","krp"];
 const COMP_F = ["pp","pi","pc","pr"].concat(INSP_F);
 function rateComp(ym, c){ const r = ((rates[ym]||{}).comp||{})[c] || {}; const o = {}; COMP_F.forEach(f=> o[f] = num(r[f])); return o; }
+/* 検品数＝設定で選んだ単位の入荷・返品の数（ケース＝箱数） */
+function setInspCounts(n, a){
+  const u = inspUse(n);
+  a.iic = u.in.c ? num(a.inBoxes) : 0;  a.iib = u.in.b ? num(a.inBalls) : 0;  a.iip = u.in.p ? num(a.inPieces) : 0;
+  a.irc = u.ret.c ? num(a.retBoxes) : 0; a.irb = u.ret.b ? num(a.retBalls) : 0; a.irp = u.ret.p ? num(a.retPieces) : 0;
+}
 function inspInAmt(a, r){ return num(a.iic)*r.kic + num(a.iib)*r.kib + num(a.iip)*r.kip; }
 function inspRetAmt(a, r){ return num(a.irc)*r.krc + num(a.irb)*r.krb + num(a.irp)*r.krp; }
 function inspAmt(a, r){ return inspInAmt(a,r) + inspRetAmt(a,r); }
@@ -1033,7 +1055,7 @@ const SPECS = {
     {k:"product",t:"psel",lbl:"商品名",full:1},
     {k:"payer",  t:"sel", lbl:"送料の負担", opts:["","EBL","企業"]},
     {k:"cod",    t:"cod", lbl:"着払い"},
-    {k:"insp",   t:"insp",lbl:"検品数"}
+    {k:"balls",  t:"ball",lbl:"ボール数"}
   ]},
   dmg:{ grid:"g-dmg", cells:[
     {k:"company",t:"comp",lbl:"企業名"},
@@ -1073,7 +1095,7 @@ function addItemRow(host, data){
       <button type="button" class="expclose">期限・ロットをしまう</button></div>
     <div class="expadd"><button type="button">＋ 賞味期限・ロット</button></div>
     <button class="del" aria-label="この商品を消す">✕</button>
-    <div class="inspline"><span class="il">検品数</span><label>ケース<input class="num" inputmode="numeric" data-k="ik" placeholder="0"></label><label>ボール<input class="num" inputmode="numeric" data-k="ib" placeholder="0"></label><label>ピース<input class="num" inputmode="numeric" data-k="ip" placeholder="0"></label></div>`;
+    <div class="ballline"><span class="il">ボール数</span><input class="num" inputmode="numeric" data-k="balls" placeholder="0"><span class="bh">ボール検品の企業だけに出る欄です</span></div>`;
 
   const dr = host.closest(".datarow");
   const sel = $('[data-k="product"]', row), free = $('[data-k="productFree"]', row);
@@ -1082,7 +1104,9 @@ function addItemRow(host, data){
     if(Array.from(sel.options).some(o=>o.value===data.product)) sel.value = data.product;
     else { sel.value="__other"; free.style.display="block"; free.value=data.product; }
   }
-  ["pallets","boxes","pieces","exp","lot","ik","ib","ip"].forEach(k=>{
+  row._keep = {};   // 以前の手入力の検品数（ik/ib/ip）は消さずに持ち回る
+  ["ik","ib","ip"].forEach(k=>{ if(data[k]) row._keep[k] = data[k]; });
+  ["pallets","boxes","pieces","balls","exp","lot"].forEach(k=>{
     if(data[k]!==undefined && data[k]!=="" && data[k]!==0){ const el=$(`[data-k="${k}"]`,row); if(el) el.value=data[k]; }
   });
   if(data.exp || data.lot) row.dataset.expOn = "1";
@@ -1179,8 +1203,9 @@ function addRow(type, data){
   const spec = SPECS[type];
   const row = document.createElement("div");
   row.className = "datarow " + spec.grid;
+  row._keep = {}; ["ik","ib","ip"].forEach(k=>{ if(data[k]) row._keep[k] = data[k]; });
   row.dataset.type = type;
-  const cellsMain = spec.cells.filter(c=> c.t!=="insp"), cellsInsp = spec.cells.filter(c=> c.t==="insp");
+  const cellsMain = spec.cells.filter(c=> c.t!=="ball"), cellsBall = spec.cells.filter(c=> c.t==="ball");
   row.innerHTML = cellsMain.map(c=>{
     const v = esc(data[c.k]);
     let inner = "";
@@ -1194,7 +1219,7 @@ function addRow(type, data){
     return `<div class="cell${c.full?" full":""}"><span class="lbl">${c.lbl}</span>${inner}</div>`;
   }).join("")
    + `<button class="del" title="この行を消す" aria-label="この行を消す">✕</button>`
-   + cellsInsp.map(()=> `<div class="cell inspcell"><div class="inspline"><span class="il">検品数</span><label>ケース<input class="num" inputmode="numeric" data-k="ik" placeholder="0"${data.ik?` value="${esc(data.ik)}"`:""}></label><label>ボール<input class="num" inputmode="numeric" data-k="ib" placeholder="0"${data.ib?` value="${esc(data.ib)}"`:""}></label><label>ピース<input class="num" inputmode="numeric" data-k="ip" placeholder="0"${data.ip?` value="${esc(data.ip)}"`:""}></label></div></div>`).join("")
+   + cellsBall.map(()=> `<div class="cell ballcell"><div class="ballline"><span class="il">ボール数</span><input class="num" inputmode="numeric" data-k="balls" placeholder="0"${data.balls?` value="${esc(data.balls)}"`:""}><span class="bh">ボール検品の企業だけに出る欄です</span></div></div>`).join("")
    + (type==="ship" ? `<div class="charter">
         <div class="cf"><span>手配会社（必須）</span><input type="text" data-k="agent" placeholder="例：〇〇急送"></div>
         <div class="cf"><span>支払金額（必須）</span><input type="text" class="num" inputmode="numeric" data-k="pay" placeholder="0"></div>
@@ -1283,14 +1308,14 @@ function itemFilled(ir){
   const sel=$('[data-k="product"]',ir);
   const p = sel.value==="__other" ? ($('[data-k="productFree"]',ir).value||"").trim() : sel.value;
   if(p) return true;
-  return ["pallets","boxes","pieces","exp","lot","ik","ib","ip"].some(k=> String($(`[data-k="${k}"]`,ir).value||"").trim()!=="");
+  return ["pallets","boxes","pieces","balls","exp","lot"].some(k=> String($(`[data-k="${k}"]`,ir).value||"").trim()!=="");
 }
 function itemData(ir){
   const sel=$('[data-k="product"]',ir);
   const p = sel.value==="__other" ? ($('[data-k="productFree"]',ir).value||"").trim() : sel.value;
   return { product:p, pallets:num(rowVal(ir,"pallets")), boxes:num(rowVal(ir,"boxes")),
            pieces:num(rowVal(ir,"pieces")), exp:parseExp(rowVal(ir,"exp")), lot:(rowVal(ir,"lot")||"").trim(),
-           ik:num(rowVal(ir,"ik")), ib:num(rowVal(ir,"ib")), ip:num(rowVal(ir,"ip")) };
+           balls:num(rowVal(ir,"balls")), ...(ir._keep||{}) };
 }
 function rowProduct(row){
   const sel=$('[data-k="product"]',row); if(!sel) return "";
@@ -1314,6 +1339,7 @@ function rowEmpty(row){
 }
 
 function recalc(){
+  refreshBalls();
   let shipQty=0, ovsQty=0, chtQty=0, payTotal=0, charterMissing=0;
   $$("#rows-ship .datarow").forEach(r=>{
     const k = rowVal(r,"kind") || "LOGILESS未導入", q = num(rowVal(r,"qty"));
@@ -1392,11 +1418,12 @@ function collect(){
       SPECS[t].cells.forEach(c=>{
         if(c.k==="company" || c.k==="work") return;
         if(c.t==="psel"){ o[c.k] = rowProduct(r); return; }
-        if(c.t==="insp"){ o.ik=num(rowVal(r,"ik")); o.ib=num(rowVal(r,"ib")); o.ip=num(rowVal(r,"ip")); return; }
+        if(c.t==="ball"){ o.balls=num(rowVal(r,"balls")); return; }
         if(c.t==="cod"){ o.cod=rowVal(r,"cod"); o.codNote=rowVal(r,"codNote"); }
         else if(c.t==="num") o[c.k]=num(rowVal(r,c.k));
         else o[c.k]=rowVal(r,c.k);
       });
+      if(r._keep) Object.assign(o, r._keep);
       if(t==="ship" && isCharter(o.kind)){ o.agent=rowVal(r,"agent"); o.pay=num(rowVal(r,"pay")); }
       rec[t].push(o);
     });
@@ -1655,7 +1682,7 @@ async function runMonthly(){
     carrierQty += dayCarrier;
 
     const gs = n => ship[n] || (ship[n]={cases:0,picks:0,qty:0,kinds:{},pay:0});
-    const ga = n => aux[n]  || (aux[n] ={sets:0,setpicks:0,inPallets:0,inBoxes:0,inPieces:0,retBoxes:0,retPieces:0,iic:0,iib:0,iip:0,irc:0,irb:0,irp:0});
+    const ga = n => aux[n]  || (aux[n] ={sets:0,setpicks:0,inPallets:0,inBoxes:0,inPieces:0,inBalls:0,retBoxes:0,retPieces:0,retBalls:0,iic:0,iib:0,iip:0,irc:0,irb:0,irp:0});
     let daySheet = 0;
     (r.ship||[]).forEach(x=>{
       const n=x.company||"（未記入）", k=x.kind||"LOGILESS未導入", q=num(x.qty), c=gs(n);
@@ -1674,10 +1701,8 @@ async function runMonthly(){
       setCells[k2].sets += q;
     });
     (r.in ||[]).forEach(x=>{ const c=ga(x.company||"（未記入）");
-      inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces);
-        c.iic+=num(it.ik); c.iib+=num(it.ib); c.iip+=num(it.ip); }); });
-    (r.ret||[]).forEach(x=>{ const c=ga(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces);
-      c.irc+=num(x.ik); c.irb+=num(x.ib); c.irp+=num(x.ip); });
+      inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces); c.inBalls+=num(it.balls); }); });
+    (r.ret||[]).forEach(x=>{ const c=ga(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces); c.retBalls+=num(x.balls); });
     (r.dmg||[]).forEach(x=>{
       const wh = x.where || DMG_WHERE[0], cn = x.company || "（未記入）";
       if(!dmgWhere[wh]) dmgWhere[wh] = {n:0,boxes:0,pieces:0};
@@ -1689,6 +1714,7 @@ async function runMonthly(){
     byDay[r.date] = {carrier:dayCarrier, sheet:daySheet};
   });
 
+  Object.keys(aux).forEach(n=> setInspCounts(n, aux[n]));
   MSTATE = {ym, site, aux, setCells};
   const shipRows = Object.keys(ship).sort((a,b)=> ship[b].qty - ship[a].qty);
   const days = Object.keys(byDay).sort();
@@ -1772,7 +1798,7 @@ async function runMonthly(){
     <div class="block-hd"><span class="block-no">請求 3</span><h2>検品の単価</h2><span class="hint">企業ごと・入荷検品／返品検品ごと</span></div>
     <div class="block-bd">
       <div class="tblwrap" id="insp-table"></div>
-      <div class="note">検品の金額は<b>ケース数×ケース単価＋ボール数×ボール単価＋ピース数×ピース単価</b>です。検品数は入力画面の入荷・返品の行にある「検品数」から集計します。ここの金額は上の「企業ごとの請求額」に足されます。「先月の単価を引き継ぐ」を押すと、検品の単価も一緒に引き継ぎます。</div>
+      <div class="note">検品数は、入荷・返品の記録から自動で数えます（ケース＝箱数、ボール＝ボール数、ピース＝ピース数）。どの単位で検品するかは「設定」タブの企業一覧で企業ごとに選びます。金額は<b>ケース数×ケース単価＋ボール数×ボール単価＋ピース数×ピース単価</b>です。ここの金額は上の「企業ごとの請求額」に足されます。「先月の単価を引き継ぐ」を押すと、検品の単価も一緒に引き継ぎます。</div>
     </div>
   </div>
 
@@ -1931,31 +1957,35 @@ function renderAux(){
       <td class="n" data-tot="insp"></td><td class="n" data-tot="sum"></td></tr></tfoot></table>`
     : `<div style="padding:14px;color:var(--ink-2)">この月は付帯作業の記録がありません。</div>`;
 
-  /* --- 表3：検品（企業 × 入荷検品／返品検品） --- */
+  /* --- 表3：検品（企業 × 入荷検品／返品検品）。設定で選んだ単位だけ出す --- */
   const IK = [["in","入荷検品","kic","kib","kip","iic","iib","iip"],["ret","返品検品","krc","krb","krp","irc","irb","irp"]];
   const inspRows = [];
   names.forEach(n=>{
-    const a=aux[n], r=rateComp(ym,n);
+    const a=aux[n], u=inspUse(n);
     IK.forEach(t=>{
-      const cnt = num(a[t[5]])+num(a[t[6]])+num(a[t[7]]), rt = r[t[2]]+r[t[3]]+r[t[4]];
-      if(cnt || rt) inspRows.push({n, t});
+      const uu=u[t[0]];
+      if(!(uu.c||uu.b||uu.p)) return;
+      if(num(a[t[5]])+num(a[t[6]])+num(a[t[7]])) inspRows.push({n, t, uu});
     });
   });
   const inspLineAmt = (n,t)=>{ const a=aux[n], r=rateComp(ym,n); return num(a[t[5]])*r[t[2]] + num(a[t[6]])*r[t[3]] + num(a[t[7]])*r[t[4]]; };
+  const anyInspSetting = cfg.companies.some(c=> ["ki","kr"].some(t=> c[t] && (c[t].c||c[t].b||c[t].p)));
   $("#insp-table").innerHTML = inspRows.length ? `<table class="data">
     <thead><tr><th>企業名</th><th>検品</th><th class="n">ケース</th><th class="n">単価</th><th class="n">ボール</th><th class="n">単価</th><th class="n">ピース</th><th class="n">単価</th><th class="n">金額</th></tr></thead>
     <tbody>${inspRows.map((x,i)=>{
       const a=aux[x.n], r=rateComp(ym,x.n), t=x.t, same = i>0 && inspRows[i-1].n===x.n;
-      const inp = f=> `<input class="rate" inputmode="numeric" data-f="${f}" value="${r[f]||""}" placeholder="0">`;
+      const pair = (on, cnt, f)=> on
+        ? `<td class="n">${num(a[cnt]).toLocaleString()}</td><td class="n"><input class="rate" inputmode="numeric" data-f="${f}" value="${r[f]||""}" placeholder="0"></td>`
+        : `<td class="n" style="color:var(--ink-3)">—</td><td></td>`;
       return `<tr data-comp="${esc(x.n)}" data-ik="${t[0]}">
         <td>${same? '<span style="color:var(--ink-3)">〃</span>' : esc(x.n)}</td><td><b>${t[1]}</b></td>
-        <td class="n">${num(a[t[5]]).toLocaleString()}</td><td class="n">${inp(t[2])}</td>
-        <td class="n">${num(a[t[6]]).toLocaleString()}</td><td class="n">${inp(t[3])}</td>
-        <td class="n">${num(a[t[7]]).toLocaleString()}</td><td class="n">${inp(t[4])}</td>
+        ${pair(x.uu.c, t[5], t[2])}${pair(x.uu.b, t[6], t[3])}${pair(x.uu.p, t[7], t[4])}
         <td class="n" data-iamt><b>${yen(inspLineAmt(x.n,t))}</b></td></tr>`;
     }).join("")}</tbody>
     <tfoot><tr><td>合計</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="n" data-tot="insp3"></td></tr></tfoot></table>`
-    : `<div style="padding:14px;color:var(--ink-2)">この月は検品の記録がありません。入力画面の入荷・返品の行で「検品数」を入れると、ここに出ます。</div>`;
+    : `<div style="padding:14px;color:var(--ink-2)">${anyInspSetting
+        ? "この月は、検品する企業の入荷・返品の記録がありません。"
+        : "検品する企業がまだ設定されていません。「設定」タブの企業一覧で、企業ごとに入荷検品・返品検品の単位（ケース・ボール・ピース）にチェックを入れてください。"}</div>`;
   $$("#insp-table input.rate").forEach(inp=> inp.addEventListener("input", ()=>{
     const tr = inp.closest("tr"), n = tr.dataset.comp, t = IK.find(x=> x[0]===tr.dataset.ik);
     setRateComp(ym, n, inp.dataset.f, inp.value);
@@ -2023,7 +2053,7 @@ function csvCompanies(){
   const ym=$("#m-month").value, site=$("#m-site").value;
   const recs = monthRecords(ym,site);
   const m={}; let seinoPallets=0, carrierBoxes=0;
-  const g=n=> m[n]||(m[n]={cases:0,picks:0,qty:0,cht:0,ovs:0,dom:0,pay:0,sets:0,setAmt:0,inPallets:0,inBoxes:0,inPieces:0,retBoxes:0,retPieces:0,iic:0,iib:0,iip:0,irc:0,irb:0,irp:0});
+  const g=n=> m[n]||(m[n]={cases:0,picks:0,qty:0,cht:0,ovs:0,dom:0,pay:0,sets:0,setAmt:0,inPallets:0,inBoxes:0,inPieces:0,inBalls:0,retBoxes:0,retPieces:0,retBalls:0,iic:0,iib:0,iip:0,irc:0,irb:0,irp:0});
   const wcells={};
   recs.forEach(r=>{
     carrierBoxes += recCarrierBoxes(r);
@@ -2039,20 +2069,22 @@ function csvCompanies(){
       wcells[kk].sets+=qy;
     });
     (r.in ||[]).forEach(x=>{ const c=g(x.company||"（未記入）");
-      inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces);
-        c.iic+=num(it.ik); c.iib+=num(it.ib); c.iip+=num(it.ip); }); });
-    (r.ret||[]).forEach(x=>{ const c=g(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces);
-      c.irc+=num(x.ik); c.irb+=num(x.ib); c.irp+=num(x.ip); });
+      inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces); c.inBalls+=num(it.balls); }); });
+    (r.ret||[]).forEach(x=>{ const c=g(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces); c.retBalls+=num(x.balls); });
     (r.dmg||[]).forEach(x=>{ const c=g(x.company||"（未記入）");
       c.dmgN=(c.dmgN||0)+1; c.dmgBox=(c.dmgBox||0)+num(x.boxes); c.dmgPc=(c.dmgPc||0)+num(x.pieces);
       if(String(x.where||"").indexOf("庫内")>=0) c.dmgWork=(c.dmgWork||0)+1; });
   });
   Object.values(wcells).forEach(c=>{ m[c.company].setAmt += c.sets*rateWork(ym,c.company,c.work); });
+  Object.keys(m).forEach(n=> setInspCounts(n, m[n]));
+  /* 検品の列は、どこかの企業が使っている単位だけ出す */
+  const ICOL = [["入荷検品ケース","in","c","iic","kic"],["入荷検品ボール","in","b","iib","kib"],["入荷検品ピース","in","p","iip","kip"],
+                ["返品検品ケース","ret","c","irc","krc"],["返品検品ボール","ret","b","irb","krb"],["返品検品ピース","ret","p","irp","krp"]]
+    .filter(col=> Object.keys(m).some(n=> inspUse(n)[col[1]][col[2]]));
 
   const head=["対象月","拠点","企業名","LOGILESS","出荷件数","ピック数","出荷個口(チャーター)","出荷個口(海外)","出荷個口(LOGILESS未導入)","出荷個口(計)","チャーター支払",
     "セット数","セット組金額","入荷パレット数","入荷箱数","入荷ピース数","入荷パレット単価","入荷箱単価","入荷ピース単価","入荷金額","返品箱数","返品ピース数","返品単価","返品金額",
-    "入荷検品ケース数","入荷検品ケース単価","入荷検品ボール数","入荷検品ボール単価","入荷検品ピース数","入荷検品ピース単価",
-    "返品検品ケース数","返品検品ケース単価","返品検品ボール数","返品検品ボール単価","返品検品ピース数","返品検品ピース単価","検品金額",
+    ...[].concat(...ICOL.map(col=> [col[0]+"数", col[0]+"単価"])), ...(ICOL.length? ["検品金額"] : []),
     "付帯作業 請求額","破損件数","うち庫内破損","破損箱数","破損ピース数"];
   const lines=[head.map(q).join(",")];
   Object.keys(m).sort().forEach(n=>{
@@ -2062,7 +2094,7 @@ function csvCompanies(){
       c.cases,c.picks,c.cht,c.ovs,c.dom,c.qty,Math.round(c.pay),
       c.sets,Math.round(c.setAmt), c.inPallets,c.inBoxes,c.inPieces,r.pp,r.pi,r.pc,Math.round(i),
       c.retBoxes,c.retPieces,r.pr,Math.round(p),
-      c.iic,r.kic,c.iib,r.kib,c.iip,r.kip, c.irc,r.krc,c.irb,r.krb,c.irp,r.krp, Math.round(k),
+      ...[].concat(...ICOL.map(col=> inspUse(n)[col[1]][col[2]] ? [c[col[3]], r[col[4]]] : ["",""])), ...(ICOL.length? [Math.round(k)] : []),
       Math.round(c.setAmt+i+p+k),
       c.dmgN||0, c.dmgWork||0, c.dmgBox||0, c.dmgPc||0].map(q).join(","));
   });
@@ -2078,14 +2110,14 @@ function csvCompanies(){
 }
 
 function inspPriceText(c,b,p){ return [c?"ケース"+c:"",b?"ボール"+b:"",p?"ピース"+p:""].filter(Boolean).join("・"); }
-function inspQtyText(x){ return `検品数 ケース${num(x.ik)}・ボール${num(x.ib)}・ピース${num(x.ip)}`; }
+function inspQtyText(u,c,b,p){ return "検品数 " + [u.c?"ケース"+c:"",u.b?"ボール"+b:"",u.p?"ピース"+p:""].filter(Boolean).join("・"); }
 function csvRaw(){
   const ym=$("#m-month").value, site=$("#m-site").value;
   const recs = monthRecords(ym,site).sort((a,b)=> a.date<b.date?-1:1);
   const head=["日付","年月","曜日","拠点","記入者","ブロック","区分・作業内容","企業名","件数","ピック数","出荷個数",
-    "セット数","パレット数","箱数","ピース数","商品名・詳細","賞味期限","ロット","破損の発生場所","手配会社","チャーター支払","送料負担","着払い","単価","金額","備考"];
+    "セット数","パレット数","箱数","ピース数","商品名・詳細","賞味期限","ロット","破損の発生場所","手配会社","チャーター支払","送料負担","着払い","単価","金額","備考","ボール数"];
   const lines=[head.map(q).join(",")];
-  const push=a=>lines.push(a.map(q).join(","));
+  const push=(a,ball)=>{ a=a.slice(); while(a.length<head.length-1) a.push(""); a.push(ball||""); lines.push(a.map(q).join(",")); };
   recs.forEach(r=>{
     const w = WD[new Date(r.date+"T00:00:00").getDay()], y2 = r.date.slice(0,7), rt = n=>rateComp(y2,n||"");
     (r.ship||[]).forEach(x=> push([r.date,y2,w,r.site,r.writer,"出荷",x.kind||"",x.company,x.cases,x.picks,x.qty,
@@ -2094,14 +2126,17 @@ function csvRaw(){
       push([r.date,y2,w,r.site,r.writer,"セット組",wn,x.company,"",x.picks,"",x.sets,"","","",wn,"","","","",p,num(x.sets)*p,x.note]); });
     (r.in  ||[]).forEach(x=>{ const rr=rt(x.company), p=[rr.pp?"パレット"+rr.pp:"",rr.pi?"箱"+rr.pi:"",rr.pc?"ピース"+rr.pc:""].filter(Boolean).join("・");
       inItems(x).forEach(it=> push([r.date,y2,w,r.site,r.writer,"入荷・入庫","",x.company,"","","","",
-        it.pallets,it.boxes,it.pieces,it.product,it.exp||"",it.lot||"","","","","","",p,itemAmt(it,rr),x.note||""]));
-      inItems(x).forEach(it=>{ if(!(num(it.ik)||num(it.ib)||num(it.ip))) return;
-        push([r.date,y2,w,r.site,r.writer,"検品","入荷検品",x.company,"","","","","",it.ik||0,it.ip||0,it.product,"","","","","","","",
-          inspPriceText(rr.kic,rr.kib,rr.kip), num(it.ik)*rr.kic+num(it.ib)*rr.kib+num(it.ip)*rr.kip, inspQtyText(it)]); }); });
+        it.pallets,it.boxes,it.pieces,it.product,it.exp||"",it.lot||"","","","","","",p,itemAmt(it,rr),x.note||""], it.balls));
+      const u=inspUse(x.company).in;
+      if(u.c||u.b||u.p) inItems(x).forEach(it=>{ const ik=u.c?num(it.boxes):0, ib=u.b?num(it.balls):0, ip=u.p?num(it.pieces):0;
+        if(!(ik||ib||ip)) return;
+        push([r.date,y2,w,r.site,r.writer,"検品","入荷検品",x.company,"","","","","",ik,ip,it.product,"","","","","","","",
+          inspPriceText(u.c&&rr.kic,u.b&&rr.kib,u.p&&rr.kip), ik*rr.kic+ib*rr.kib+ip*rr.kip, inspQtyText(u,ik,ib,ip)], ib); }); });
     (r.ret ||[]).forEach(x=>{ const p=rt(x.company).pr, rr=rt(x.company);
-      if(num(x.ik)||num(x.ib)||num(x.ip)) push([r.date,y2,w,r.site,r.writer,"検品","返品検品",x.company,"","","","","",x.ik||0,x.ip||0,x.product,"","","","","","","",
-        inspPriceText(rr.krc,rr.krb,rr.krp), num(x.ik)*rr.krc+num(x.ib)*rr.krb+num(x.ip)*rr.krp, inspQtyText(x)]);
-      push([r.date,y2,w,r.site,r.writer,"返品","",x.company,"","","","","",x.boxes,x.pieces,x.product,"","","","","",x.payer,x.cod?("着払い "+(x.codNote||"")):"",p,num(x.boxes)*p,""]); });
+      const u=inspUse(x.company).ret, ik=u.c?num(x.boxes):0, ib=u.b?num(x.balls):0, ip=u.p?num(x.pieces):0;
+      if(ik||ib||ip) push([r.date,y2,w,r.site,r.writer,"検品","返品検品",x.company,"","","","","",ik,ip,x.product,"","","","","","","",
+        inspPriceText(u.c&&rr.krc,u.b&&rr.krb,u.p&&rr.krp), ik*rr.krc+ib*rr.krb+ip*rr.krp, inspQtyText(u,ik,ib,ip)], ib);
+      push([r.date,y2,w,r.site,r.writer,"返品","",x.company,"","","","","",x.boxes,x.pieces,x.product,"","","","","",x.payer,x.cod?("着払い "+(x.codNote||"")):"",p,num(x.boxes)*p,""], x.balls); });
     (r.dmg ||[]).forEach(x=> push([r.date,y2,w,r.site,r.writer,"破損",DMG_SHORT[x.where]||x.where||"",x.company,
       "","","","","",x.boxes,x.pieces,x.product,"","",x.where||"","","","","","",x.note||""]));
     CARRIERS.forEach(c=>{ const o=((r.carriers||{})[c.id])||{};
@@ -2252,11 +2287,22 @@ function renderProducts(){
   }));
 }
 function renderComps(){
+  const ck = (c,i,t,u,lbl)=> `<label><input type="checkbox" data-kci="${i}" data-kt="${t}" data-ku="${u}"${(c[t]||{})[u]?" checked":""}>${lbl}</label>`;
   $("#comp-list").innerHTML = cfg.companies.map((c,i)=>`
+    <div class="compset">
     <div class="setrow">
       <div class="cell"><input type="text" value="${esc(c.n)}" data-ci="${i}" data-f="n"></div>
       <div class="cell"><select data-ci="${i}" data-f="l"><option value="1"${c.l?" selected":""}>LOGILESS済</option><option value="0"${!c.l?" selected":""}>LOGILESS未</option></select></div>
-      <button class="del" data-cdel="${i}" aria-label="削除">✕</button></div>`).join("");
+      <button class="del" data-cdel="${i}" aria-label="削除">✕</button></div>
+    <div class="inspset">
+      <div class="g"><b>入荷検品</b>${ck(c,i,"ki","c","ケース")}${ck(c,i,"ki","b","ボール")}${ck(c,i,"ki","p","ピース")}</div>
+      <div class="g"><b>返品検品</b>${ck(c,i,"kr","c","ケース")}${ck(c,i,"kr","b","ボール")}${ck(c,i,"kr","p","ピース")}</div>
+    </div></div>`).join("");
+  $$("[data-kci]").forEach(el=> el.addEventListener("change", ()=>{
+    const c = cfg.companies[+el.dataset.kci], t = el.dataset.kt, u = el.dataset.ku;
+    c[t] = Object.assign({c:0,b:0,p:0}, c[t]||{}); c[t][u] = el.checked ? 1 : 0;
+    saveCfg(); recalc();
+  }));
   $$("[data-ci]").forEach(el=> el.addEventListener("change", ()=>{
     const c = cfg.companies[+el.dataset.ci], f = el.dataset.f;
     c[f] = (f==="n") ? el.value.trim() : +el.value;
