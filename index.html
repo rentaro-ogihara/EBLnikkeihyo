@@ -150,6 +150,19 @@ input.num.need{border-color:var(--alert);background:#fdeee9}
 .dmgtag.t-ret{color:#0369a1;border-color:#0369a1;background:#e8f3fb}
 .dmgtag.t-out{color:#1a6b43;border-color:#1a6b43;background:#eaf6ef}
 .g-ret{grid-template-columns:1.3fr 100px 106px 1.3fr 150px 1.2fr 44px}
+/* 検品数（ケース・ボール・ピース）：入荷の商品行と返品の行の下に1段 */
+.inspline{grid-column:1 / -1;display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;
+  border-top:1.5px dashed #b6d7de;padding-top:8px;margin-top:2px}
+.inspline .il{font-size:13px;font-weight:700;color:#0e7490;letter-spacing:.06em;min-width:64px}
+.inspline label{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink-2);font-weight:700}
+.inspline input.num{width:92px;min-height:42px;font-size:17px;padding:6px 8px}
+.datarow .cell.inspcell{grid-column:1 / -1}
+@media (max-width:1000px){
+  .inspline{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .inspline .il{grid-column:1 / -1}
+  .inspline label{flex-direction:column;align-items:stretch;gap:4px;font-size:13px}
+  .inspline input.num{width:100%}
+}
 
 .datarow.k-dom{border-left:8px solid var(--k-dom)}
 .datarow.k-ovs{border-left:8px solid var(--k-ovs);background:#fff8ee}
@@ -614,7 +627,7 @@ const K_DIRTY="ebl_nikkei_dirty_v1";
 
 const DEFAULT_CFG = {
   offDays:[0],
-  sites:["本社倉庫","八寸町倉庫"],
+  sites:["本社倉庫"],
   works:["什器組み換え","パネル入れ替え","セット組","テスター作成"],
   products:[],
   companies:[],
@@ -622,6 +635,14 @@ const DEFAULT_CFG = {
 };
 
 let cfg = load(K_CFG, DEFAULT_CFG);
+/* 使わなくなった拠点：記録は消さずに残し、画面・集計・CSVからは外す */
+const RETIRED_SITES = ["八寸町倉庫"];
+function applyRetired(){
+  if(!Array.isArray(cfg.sites)) cfg.sites = [];
+  cfg.sites = cfg.sites.filter(s=> RETIRED_SITES.indexOf(s) < 0);
+  if(!cfg.sites.length) cfg.sites = ["本社倉庫"];
+}
+applyRetired();
 let records = load(K_REC, {});
 let rates = load(K_RATE, {});
 let dirty = load(K_DIRTY, []);   // 共有フォルダに未送信の「日付|拠点」
@@ -647,7 +668,7 @@ async function pullSettings(){
     const fh = await FS.dir.getFileHandle(SETTINGS_FILE);
     const remote = JSON.parse(await (await fh.getFile()).text());
     if(remote && num(remote.ts) > num(cfg.ts)){
-      cfg = remote;
+      cfg = remote; applyRetired();
       Store.set(K_CFG, JSON.stringify(cfg));
       return true;
     }
@@ -687,9 +708,9 @@ function restoreBackup(i){
   const list = backupList(), b = list[i];
   if(!b) return false;
   snapshotNow("復元する直前");
-  if(b.cfg){ cfg = b.cfg; Store.set(K_CFG, JSON.stringify(cfg)); }
+  if(b.cfg){ cfg = b.cfg; applyRetired(); Store.set(K_CFG, JSON.stringify(cfg)); }
   if(b.records){ records = b.records; saveRec(); }
-  if(b.rates){ rates = b.rates; saveRate(); }
+  if(b.rates){ rates = b.rates; saveRate(); touchAllRates(); }
   return true;
 }
 function saveDirty(){ Store.set(K_DIRTY, JSON.stringify(dirty)); }
@@ -752,12 +773,79 @@ function setRateWork(ym, comp, w, v){
   const m = ensureYm(ym);
   if(!m.work[comp]) m.work[comp] = {};
   m.work[comp][w] = num(v); saveRate();
+  touchRate([ym,"w",comp,w]);
 }
-function rateComp(ym, c){ const r = ((rates[ym]||{}).comp||{})[c] || {}; return {pi:num(r.pi), pr:num(r.pr)}; }
+/* 入荷は「パレット(pp)・箱(pi)・ピース(pc)」の3つ、返品は箱(pr)。pi は以前からの「入荷1箱」をそのまま使う */
+/* 検品：入荷検品 kic(ケース)・kib(ボール)・kip(ピース)／返品検品 krc・krb・krp */
+const INSP_F = ["kic","kib","kip","krc","krb","krp"];
+const COMP_F = ["pp","pi","pc","pr"].concat(INSP_F);
+function rateComp(ym, c){ const r = ((rates[ym]||{}).comp||{})[c] || {}; const o = {}; COMP_F.forEach(f=> o[f] = num(r[f])); return o; }
+function inspInAmt(a, r){ return num(a.iic)*r.kic + num(a.iib)*r.kib + num(a.iip)*r.kip; }
+function inspRetAmt(a, r){ return num(a.irc)*r.krc + num(a.irb)*r.krb + num(a.irp)*r.krp; }
+function inspAmt(a, r){ return inspInAmt(a,r) + inspRetAmt(a,r); }
 function setRateComp(ym, c, f, v){
   const m = ensureYm(ym);
   if(!m.comp[c]) m.comp[c] = {pi:0,pr:0};
   m.comp[c][f] = num(v); saveRate();
+  touchRate([ym,"c",c,f]);
+}
+function inAmt(a, r){ return num(a.inPallets)*r.pp + num(a.inBoxes)*r.pi + num(a.inPieces)*r.pc; }
+function itemAmt(it, r){ return num(it.pallets)*r.pp + num(it.boxes)*r.pi + num(it.pieces)*r.pc; }
+
+/* ============================================================
+   単価の共有：共有フォルダの「_単価.json」を通して、ほかのPCにも伝える
+   　単価1つごとに更新時刻を持ち、新しいほうを採用する（同時に別の単価を入れても消えない）
+   ============================================================ */
+const K_RATE_TS = "ebl_nikkei_rate_ts_v1", RATES_FILE = "_単価.json";
+let rateTs = load(K_RATE_TS, {});
+const rk = a => JSON.stringify(a);
+function saveRateTs(){ Store.set(K_RATE_TS, JSON.stringify(rateTs)); }
+let ratePushTimer = null;
+function touchRate(a){
+  rateTs[rk(a)] = Date.now(); saveRateTs();
+  clearTimeout(ratePushTimer); ratePushTimer = setTimeout(()=>{ pushRates(); }, 800);
+}
+function touchAllRates(){ const t = Date.now(); rateCells().forEach(c=>{ rateTs[rk(c.slice(0,4))] = t; }); saveRateTs(); pushRates(); }
+function rateCells(){
+  const out = [];
+  Object.keys(rates).forEach(ym=>{
+    const m = rates[ym] || {};
+    Object.keys(m.work||{}).forEach(c=> Object.keys(m.work[c]||{}).forEach(w=> out.push([ym,"w",c,w,num(m.work[c][w])])));
+    Object.keys(m.comp||{}).forEach(c=> COMP_F.forEach(f=>{ if(m.comp[c] && f in m.comp[c]) out.push([ym,"c",c,f,num(m.comp[c][f])]); }));
+  });
+  return out;
+}
+function applyRateCell(ym, t, c, f, v){
+  const m = ensureYm(ym);
+  if(t==="w"){ if(!m.work[c]) m.work[c] = {}; m.work[c][f] = num(v); }
+  else { if(!m.comp[c]) m.comp[c] = {pi:0,pr:0}; m.comp[c][f] = num(v); }
+}
+async function pullRates(){
+  if(!FS.dir) return 0;
+  let n = 0;
+  try{
+    const fh = await FS.dir.getFileHandle(RATES_FILE);
+    const j = JSON.parse(await (await fh.getFile()).text());
+    (j.cells||[]).forEach(x=>{
+      if(!Array.isArray(x) || x.length < 6) return;
+      const [ym,t,c,f,v,ts] = x, k = rk([ym,t,c,f]);
+      if(num(ts) > num(rateTs[k])){ applyRateCell(ym,t,c,f,v); rateTs[k] = num(ts); n++; }
+    });
+    if(n){ saveRate(); saveRateTs(); }
+  }catch(e){}
+  return n;
+}
+async function pushRates(){
+  if(!FS.dir) return false;
+  try{
+    await pullRates();   // 書く直前にほかのPCの分を取り込んでから書く
+    const cells = rateCells().map(c=> c.concat([num(rateTs[rk(c.slice(0,4))]) || 1]));
+    const fh = await FS.dir.getFileHandle(RATES_FILE, {create:true});
+    const w = await fh.createWritable();
+    await w.write(JSON.stringify({v:1, at:new Date().toISOString(), cells}));
+    await w.close();
+    return true;
+  }catch(e){ return false; }
 }
 function prevMonth(ym){
   const [y,m] = ym.split("-").map(Number);
@@ -944,7 +1032,8 @@ const SPECS = {
     {k:"pieces", t:"num", lbl:"ピース数"},
     {k:"product",t:"psel",lbl:"商品名",full:1},
     {k:"payer",  t:"sel", lbl:"送料の負担", opts:["","EBL","企業"]},
-    {k:"cod",    t:"cod", lbl:"着払い"}
+    {k:"cod",    t:"cod", lbl:"着払い"},
+    {k:"insp",   t:"insp",lbl:"検品数"}
   ]},
   dmg:{ grid:"g-dmg", cells:[
     {k:"company",t:"comp",lbl:"企業名"},
@@ -983,7 +1072,8 @@ function addItemRow(host, data){
     <div class="cell expcell"><span class="lbl">ロット</span><input type="text" data-k="lot" placeholder="ロット番号">
       <button type="button" class="expclose">期限・ロットをしまう</button></div>
     <div class="expadd"><button type="button">＋ 賞味期限・ロット</button></div>
-    <button class="del" aria-label="この商品を消す">✕</button>`;
+    <button class="del" aria-label="この商品を消す">✕</button>
+    <div class="inspline"><span class="il">検品数</span><label>ケース<input class="num" inputmode="numeric" data-k="ik" placeholder="0"></label><label>ボール<input class="num" inputmode="numeric" data-k="ib" placeholder="0"></label><label>ピース<input class="num" inputmode="numeric" data-k="ip" placeholder="0"></label></div>`;
 
   const dr = host.closest(".datarow");
   const sel = $('[data-k="product"]', row), free = $('[data-k="productFree"]', row);
@@ -992,7 +1082,7 @@ function addItemRow(host, data){
     if(Array.from(sel.options).some(o=>o.value===data.product)) sel.value = data.product;
     else { sel.value="__other"; free.style.display="block"; free.value=data.product; }
   }
-  ["pallets","boxes","pieces","exp","lot"].forEach(k=>{
+  ["pallets","boxes","pieces","exp","lot","ik","ib","ip"].forEach(k=>{
     if(data[k]!==undefined && data[k]!=="" && data[k]!==0){ const el=$(`[data-k="${k}"]`,row); if(el) el.value=data[k]; }
   });
   if(data.exp || data.lot) row.dataset.expOn = "1";
@@ -1090,7 +1180,8 @@ function addRow(type, data){
   const row = document.createElement("div");
   row.className = "datarow " + spec.grid;
   row.dataset.type = type;
-  row.innerHTML = spec.cells.map(c=>{
+  const cellsMain = spec.cells.filter(c=> c.t!=="insp"), cellsInsp = spec.cells.filter(c=> c.t==="insp");
+  row.innerHTML = cellsMain.map(c=>{
     const v = esc(data[c.k]);
     let inner = "";
     if(c.t==="comp")      inner = `<select data-k="company">${compOptions()}</select><input type="text" data-k="companyFree" placeholder="企業名を入力" style="display:none;margin-top:6px">`;
@@ -1103,6 +1194,7 @@ function addRow(type, data){
     return `<div class="cell${c.full?" full":""}"><span class="lbl">${c.lbl}</span>${inner}</div>`;
   }).join("")
    + `<button class="del" title="この行を消す" aria-label="この行を消す">✕</button>`
+   + cellsInsp.map(()=> `<div class="cell inspcell"><div class="inspline"><span class="il">検品数</span><label>ケース<input class="num" inputmode="numeric" data-k="ik" placeholder="0"${data.ik?` value="${esc(data.ik)}"`:""}></label><label>ボール<input class="num" inputmode="numeric" data-k="ib" placeholder="0"${data.ib?` value="${esc(data.ib)}"`:""}></label><label>ピース<input class="num" inputmode="numeric" data-k="ip" placeholder="0"${data.ip?` value="${esc(data.ip)}"`:""}></label></div></div>`).join("")
    + (type==="ship" ? `<div class="charter">
         <div class="cf"><span>手配会社（必須）</span><input type="text" data-k="agent" placeholder="例：〇〇急送"></div>
         <div class="cf"><span>支払金額（必須）</span><input type="text" class="num" inputmode="numeric" data-k="pay" placeholder="0"></div>
@@ -1191,13 +1283,14 @@ function itemFilled(ir){
   const sel=$('[data-k="product"]',ir);
   const p = sel.value==="__other" ? ($('[data-k="productFree"]',ir).value||"").trim() : sel.value;
   if(p) return true;
-  return ["pallets","boxes","pieces","exp","lot"].some(k=> String($(`[data-k="${k}"]`,ir).value||"").trim()!=="");
+  return ["pallets","boxes","pieces","exp","lot","ik","ib","ip"].some(k=> String($(`[data-k="${k}"]`,ir).value||"").trim()!=="");
 }
 function itemData(ir){
   const sel=$('[data-k="product"]',ir);
   const p = sel.value==="__other" ? ($('[data-k="productFree"]',ir).value||"").trim() : sel.value;
   return { product:p, pallets:num(rowVal(ir,"pallets")), boxes:num(rowVal(ir,"boxes")),
-           pieces:num(rowVal(ir,"pieces")), exp:parseExp(rowVal(ir,"exp")), lot:(rowVal(ir,"lot")||"").trim() };
+           pieces:num(rowVal(ir,"pieces")), exp:parseExp(rowVal(ir,"exp")), lot:(rowVal(ir,"lot")||"").trim(),
+           ik:num(rowVal(ir,"ik")), ib:num(rowVal(ir,"ib")), ip:num(rowVal(ir,"ip")) };
 }
 function rowProduct(row){
   const sel=$('[data-k="product"]',row); if(!sel) return "";
@@ -1299,6 +1392,7 @@ function collect(){
       SPECS[t].cells.forEach(c=>{
         if(c.k==="company" || c.k==="work") return;
         if(c.t==="psel"){ o[c.k] = rowProduct(r); return; }
+        if(c.t==="insp"){ o.ik=num(rowVal(r,"ik")); o.ib=num(rowVal(r,"ib")); o.ip=num(rowVal(r,"ip")); return; }
         if(c.t==="cod"){ o.cod=rowVal(r,"cod"); o.codNote=rowVal(r,"codNote"); }
         else if(c.t==="num") o[c.k]=num(rowVal(r,c.k));
         else o[c.k]=rowVal(r,c.k);
@@ -1437,6 +1531,7 @@ async function connectFolder(){
     const gotCfg = await pullSettings();
     if(gotCfg){ renderOffDays(); renderSites(); renderComps(); renderWorks(); renderProducts(); renderSiteSelects(); }
     else { await pushSettings(); }
+    await pushRates();
     const sent = await flushDirty();
     const got  = await syncFromFolder(monthStr());
     loadDay(); renderPermBar();
@@ -1535,13 +1630,13 @@ function inItems(x){
   return (it.product||it.pallets||it.boxes||it.pieces) ? [it] : [];
 }
 function monthRecords(ym, site){
-  return Object.values(records).filter(r=> r.date && r.date.slice(0,7)===ym && (site==="__all" || r.site===site));
+  return Object.values(records).filter(r=> r.date && r.date.slice(0,7)===ym && cfg.sites.indexOf(r.site)>=0 && (site==="__all" || r.site===site));
 }
 let MSTATE = null;
 
 async function runMonthly(){
   const ym = $("#m-month").value, site = $("#m-site").value;
-  if(FS.dir){ $("#m-out").innerHTML = `<div class="block"><div class="loading">共有フォルダから読み込んでいます…</div></div>`; await syncFromFolder(ym); }
+  if(FS.dir){ $("#m-out").innerHTML = `<div class="block"><div class="loading">共有フォルダから読み込んでいます…</div></div>`; await syncFromFolder(ym); await pushRates(); }
   const recs = monthRecords(ym, site).sort((a,b)=> a.date<b.date?-1:1);
   if(!recs.length){ $("#m-out").innerHTML = `<div class="block"><div class="block-bd">この月のデータはまだありません。入力画面から日計表を保存すると、ここに集計が出ます。</div></div>`; MSTATE=null; return; }
 
@@ -1560,7 +1655,7 @@ async function runMonthly(){
     carrierQty += dayCarrier;
 
     const gs = n => ship[n] || (ship[n]={cases:0,picks:0,qty:0,kinds:{},pay:0});
-    const ga = n => aux[n]  || (aux[n] ={sets:0,setpicks:0,inPallets:0,inBoxes:0,inPieces:0,retBoxes:0,retPieces:0});
+    const ga = n => aux[n]  || (aux[n] ={sets:0,setpicks:0,inPallets:0,inBoxes:0,inPieces:0,retBoxes:0,retPieces:0,iic:0,iib:0,iip:0,irc:0,irb:0,irp:0});
     let daySheet = 0;
     (r.ship||[]).forEach(x=>{
       const n=x.company||"（未記入）", k=x.kind||"LOGILESS未導入", q=num(x.qty), c=gs(n);
@@ -1579,8 +1674,10 @@ async function runMonthly(){
       setCells[k2].sets += q;
     });
     (r.in ||[]).forEach(x=>{ const c=ga(x.company||"（未記入）");
-      inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces); }); });
-    (r.ret||[]).forEach(x=>{ const c=ga(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces); });
+      inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces);
+        c.iic+=num(it.ik); c.iib+=num(it.ib); c.iip+=num(it.ip); }); });
+    (r.ret||[]).forEach(x=>{ const c=ga(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces);
+      c.irc+=num(x.ik); c.irb+=num(x.ib); c.irp+=num(x.ip); });
     (r.dmg||[]).forEach(x=>{
       const wh = x.where || DMG_WHERE[0], cn = x.company || "（未記入）";
       if(!dmgWhere[wh]) dmgWhere[wh] = {n:0,boxes:0,pieces:0};
@@ -1606,7 +1703,7 @@ async function runMonthly(){
     <div class="kpi" style="border-left-color:${Object.values(dmgWhere).reduce((a,d)=>a+d.n,0)?"var(--alert)":"var(--signal)"}">
       <div class="k">破損</div><div class="v">${Object.values(dmgWhere).reduce((a,d)=>a+d.n,0)}<small>件</small></div></div>
     <div class="kpi"><div class="k">チャーター便 支払</div><div class="v" style="font-size:24px">${yen(payTotal)}</div></div>
-    <div class="kpi"><div class="k">対象</div><div class="v" style="font-size:20px;font-family:var(--fs-jp)">${esc(ym)}／${site==="__all"?"全拠点":esc(site)}</div></div>
+    <div class="kpi"><div class="k">対象</div><div class="v" style="font-size:20px;font-family:var(--fs-jp)">${esc(ym)}／${esc(siteLabel(site))}</div></div>
   </div>
 
   <div class="block">
@@ -1656,16 +1753,26 @@ async function runMonthly(){
   </div>
 
   <div class="block">
-    <div class="block-hd"><span class="block-no">請求 2</span><h2>企業ごとの請求額</h2><span class="hint">入荷・返品の単価は企業ごと</span></div>
+    <div class="block-hd"><span class="block-no">請求 2</span><h2>企業ごとの請求額</h2><span class="hint">入荷はパレット・箱・ピースごと、返品は箱ごとの単価</span></div>
     <div class="block-bd">
       <div class="bulkbar">
+        <div class="field"><label>入荷（1パレット）</label><input class="num" inputmode="numeric" id="bulk-pp" placeholder="0"></div>
         <div class="field"><label>入荷（1箱）</label><input class="num" inputmode="numeric" id="bulk-pi" placeholder="0"></div>
+        <div class="field"><label>入荷（1ピース）</label><input class="num" inputmode="numeric" id="bulk-pc" placeholder="0"></div>
         <div class="field"><label>返品（1箱）</label><input class="num" inputmode="numeric" id="bulk-pr" placeholder="0"></div>
         <button class="btn btn-ghost btn-sm" id="bulk-apply">すべての企業に反映</button>
         <button class="btn btn-ghost btn-sm" id="comp-carry">先月の単価を引き継ぐ</button>
       </div>
       <div class="tblwrap" id="comp-table"></div>
-      <div class="note">単価はこの月だけに使われます。翌月はまた入力してください。セット組の金額は、上の「セット組の単価」から自動で計算されます。</div>
+      <div class="note">入荷の金額は<b>パレット数×パレット単価＋箱数×箱単価＋ピース数×ピース単価</b>です。使わない単位は空欄のままで構いません。単価はこの月だけに使われます（「先月の単価を引き継ぐ」で前月分を入れられます）。共有フォルダにつないでいれば、ほかのPCにも同じ単価が出ます。</div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-hd"><span class="block-no">請求 3</span><h2>検品の単価</h2><span class="hint">企業ごと・入荷検品／返品検品ごと</span></div>
+    <div class="block-bd">
+      <div class="tblwrap" id="insp-table"></div>
+      <div class="note">検品の金額は<b>ケース数×ケース単価＋ボール数×ボール単価＋ピース数×ピース単価</b>です。検品数は入力画面の入荷・返品の行にある「検品数」から集計します。ここの金額は上の「企業ごとの請求額」に足されます。「先月の単価を引き継ぐ」を押すと、検品の単価も一緒に引き継ぎます。</div>
     </div>
   </div>
 
@@ -1734,8 +1841,10 @@ async function runMonthly(){
 
   renderAux();
   $("#bulk-apply").addEventListener("click", ()=>{
-    const pi=num($("#bulk-pi").value), pr=num($("#bulk-pr").value);
-    Object.keys(MSTATE.aux).forEach(n=>{ setRateComp(MSTATE.ym,n,"pi",pi); setRateComp(MSTATE.ym,n,"pr",pr); });
+    const v = {pp:$("#bulk-pp").value, pi:$("#bulk-pi").value, pc:$("#bulk-pc").value, pr:$("#bulk-pr").value};
+    const fs = COMP_F.filter(f=> String(v[f]).trim()!=="");   // 空欄の単価は変えない
+    if(!fs.length){ toast("反映する単価を入れてください", true); return; }
+    Object.keys(MSTATE.aux).forEach(n=> fs.forEach(f=> setRateComp(MSTATE.ym,n,f,v[f])));
     renderAux(); toast("すべての企業に反映しました");
   });
   $("#work-carry").addEventListener("click", ()=>{
@@ -1750,7 +1859,7 @@ async function runMonthly(){
     const pm = prevMonth(MSTATE.ym); let n=0;
     Object.keys(MSTATE.aux).forEach(name=>{
       const r = rateComp(pm, name);
-      if(r.pi || r.pr){ setRateComp(MSTATE.ym,name,"pi",r.pi); setRateComp(MSTATE.ym,name,"pr",r.pr); n++; }
+      if(COMP_F.some(f=> r[f])){ COMP_F.forEach(f=> setRateComp(MSTATE.ym,name,f,r[f])); n++; }
     });
     renderAux(); toast(n? n+"社に先月の単価を入れました" : "先月の単価が見つかりませんでした", !n);
   });
@@ -1793,27 +1902,67 @@ function renderAux(){
   const names = Object.keys(aux).sort();
   $("#comp-table").innerHTML = names.length ? `<table class="data">
     <thead><tr><th rowspan="2">企業名</th><th class="n" rowspan="2">セット組 金額</th>
-      <th class="n" colspan="3">入荷</th><th class="n" colspan="3">返品</th><th class="n" rowspan="2">請求額</th></tr>
-    <tr><th class="n">箱数</th><th class="n">単価</th><th class="n">金額</th>
+      <th class="n" colspan="7">入荷</th><th class="n" colspan="3">返品</th><th class="n" rowspan="2">検品 金額</th><th class="n" rowspan="2">請求額</th></tr>
+    <tr><th class="n">パレット</th><th class="n">単価</th><th class="n">箱数</th><th class="n">単価</th><th class="n">ピース</th><th class="n">単価</th><th class="n">金額</th>
         <th class="n">箱数</th><th class="n">単価</th><th class="n">金額</th></tr></thead>
     <tbody>${names.map(n=>{
-      const a=aux[n], r=rateComp(ym,n), sa=setAmtOf(ym,n), i=a.inBoxes*r.pi, p=a.retBoxes*r.pr;
+      const a=aux[n], r=rateComp(ym,n), sa=setAmtOf(ym,n), i=inAmt(a,r), p=a.retBoxes*r.pr, k=inspAmt(a,r);
       return `<tr data-comp="${esc(n)}">
         <td>${esc(n)}${isLogiless(n)?' <span class="pill y">LOGILESS済</span>':''}</td>
         <td class="n" data-amt="set">${yen(sa)}</td>
+        <td class="n">${a.inPallets.toLocaleString()}</td>
+        <td class="n"><input class="rate" inputmode="numeric" data-f="pp" value="${r.pp||""}" placeholder="0"></td>
         <td class="n">${a.inBoxes.toLocaleString()}</td>
         <td class="n"><input class="rate" inputmode="numeric" data-f="pi" value="${r.pi||""}" placeholder="0"></td>
+        <td class="n">${a.inPieces.toLocaleString()}</td>
+        <td class="n"><input class="rate" inputmode="numeric" data-f="pc" value="${r.pc||""}" placeholder="0"></td>
         <td class="n" data-amt="pi">${yen(i)}</td>
         <td class="n">${a.retBoxes.toLocaleString()}</td>
         <td class="n"><input class="rate" inputmode="numeric" data-f="pr" value="${r.pr||""}" placeholder="0"></td>
         <td class="n" data-amt="pr">${yen(p)}</td>
-        <td class="n" data-amt="sum"><b>${yen(sa+i+p)}</b></td></tr>`;
+        <td class="n" data-amt="insp">${yen(k)}</td>
+        <td class="n" data-amt="sum"><b>${yen(sa+i+p+k)}</b></td></tr>`;
     }).join("")}</tbody>
     <tfoot><tr><td>合計</td><td class="n" data-tot="set"></td>
-      <td class="n">${names.reduce((a,n)=>a+aux[n].inBoxes,0).toLocaleString()}</td><td></td><td class="n" data-tot="pi"></td>
+      <td class="n">${names.reduce((a,n)=>a+aux[n].inPallets,0).toLocaleString()}</td><td></td>
+      <td class="n">${names.reduce((a,n)=>a+aux[n].inBoxes,0).toLocaleString()}</td><td></td>
+      <td class="n">${names.reduce((a,n)=>a+aux[n].inPieces,0).toLocaleString()}</td><td></td><td class="n" data-tot="pi"></td>
       <td class="n">${names.reduce((a,n)=>a+aux[n].retBoxes,0).toLocaleString()}</td><td></td><td class="n" data-tot="pr"></td>
-      <td class="n" data-tot="sum"></td></tr></tfoot></table>`
+      <td class="n" data-tot="insp"></td><td class="n" data-tot="sum"></td></tr></tfoot></table>`
     : `<div style="padding:14px;color:var(--ink-2)">この月は付帯作業の記録がありません。</div>`;
+
+  /* --- 表3：検品（企業 × 入荷検品／返品検品） --- */
+  const IK = [["in","入荷検品","kic","kib","kip","iic","iib","iip"],["ret","返品検品","krc","krb","krp","irc","irb","irp"]];
+  const inspRows = [];
+  names.forEach(n=>{
+    const a=aux[n], r=rateComp(ym,n);
+    IK.forEach(t=>{
+      const cnt = num(a[t[5]])+num(a[t[6]])+num(a[t[7]]), rt = r[t[2]]+r[t[3]]+r[t[4]];
+      if(cnt || rt) inspRows.push({n, t});
+    });
+  });
+  const inspLineAmt = (n,t)=>{ const a=aux[n], r=rateComp(ym,n); return num(a[t[5]])*r[t[2]] + num(a[t[6]])*r[t[3]] + num(a[t[7]])*r[t[4]]; };
+  $("#insp-table").innerHTML = inspRows.length ? `<table class="data">
+    <thead><tr><th>企業名</th><th>検品</th><th class="n">ケース</th><th class="n">単価</th><th class="n">ボール</th><th class="n">単価</th><th class="n">ピース</th><th class="n">単価</th><th class="n">金額</th></tr></thead>
+    <tbody>${inspRows.map((x,i)=>{
+      const a=aux[x.n], r=rateComp(ym,x.n), t=x.t, same = i>0 && inspRows[i-1].n===x.n;
+      const inp = f=> `<input class="rate" inputmode="numeric" data-f="${f}" value="${r[f]||""}" placeholder="0">`;
+      return `<tr data-comp="${esc(x.n)}" data-ik="${t[0]}">
+        <td>${same? '<span style="color:var(--ink-3)">〃</span>' : esc(x.n)}</td><td><b>${t[1]}</b></td>
+        <td class="n">${num(a[t[5]]).toLocaleString()}</td><td class="n">${inp(t[2])}</td>
+        <td class="n">${num(a[t[6]]).toLocaleString()}</td><td class="n">${inp(t[3])}</td>
+        <td class="n">${num(a[t[7]]).toLocaleString()}</td><td class="n">${inp(t[4])}</td>
+        <td class="n" data-iamt><b>${yen(inspLineAmt(x.n,t))}</b></td></tr>`;
+    }).join("")}</tbody>
+    <tfoot><tr><td>合計</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="n" data-tot="insp3"></td></tr></tfoot></table>`
+    : `<div style="padding:14px;color:var(--ink-2)">この月は検品の記録がありません。入力画面の入荷・返品の行で「検品数」を入れると、ここに出ます。</div>`;
+  $$("#insp-table input.rate").forEach(inp=> inp.addEventListener("input", ()=>{
+    const tr = inp.closest("tr"), n = tr.dataset.comp, t = IK.find(x=> x[0]===tr.dataset.ik);
+    setRateComp(ym, n, inp.dataset.f, inp.value);
+    $("[data-iamt]",tr).innerHTML = "<b>"+yen(inspLineAmt(n,t))+"</b>";
+    const ct = $$("#comp-table tbody tr").find(x=> x.dataset.comp===n); if(ct) updateCompRow(ct);
+    updateAuxTotals();
+  }));
 
   $$("#work-table input.rate").forEach(inp=> inp.addEventListener("input", ()=>{
     const tr = inp.closest("tr"), c = MSTATE.setCells[tr.dataset.cell];
@@ -1835,26 +1984,29 @@ function updateWorkRow(tr){
 }
 function updateCompRow(tr){
   const n = tr.dataset.comp, a = MSTATE.aux[n], r = rateComp(MSTATE.ym,n);
-  const sa = setAmtOf(MSTATE.ym,n), i = a.inBoxes*r.pi, p = a.retBoxes*r.pr;
+  const sa = setAmtOf(MSTATE.ym,n), i = inAmt(a,r), p = a.retBoxes*r.pr, k = inspAmt(a,r);
   $('[data-amt="set"]',tr).textContent = yen(sa);
   $('[data-amt="pi"]',tr).textContent  = yen(i);
   $('[data-amt="pr"]',tr).textContent  = yen(p);
-  $('[data-amt="sum"]',tr).innerHTML   = "<b>"+yen(sa+i+p)+"</b>";
+  $('[data-amt="insp"]',tr).textContent = yen(k);
+  $('[data-amt="sum"]',tr).innerHTML   = "<b>"+yen(sa+i+p+k)+"</b>";
 }
 function updateAuxTotals(){
   const ym = MSTATE.ym;
   const wTot = Object.values(MSTATE.setCells||{}).reduce((a,c)=> a + c.sets*rateWork(ym,c.company,c.work), 0);
-  const t = {set:0, pi:0, pr:0};
+  const t = {set:0, pi:0, pr:0, insp:0};
   Object.keys(MSTATE.aux).forEach(n=>{
     const a=MSTATE.aux[n], r=rateComp(ym,n);
-    t.set += setAmtOf(ym,n); t.pi += a.inBoxes*r.pi; t.pr += a.retBoxes*r.pr;
+    t.set += setAmtOf(ym,n); t.pi += inAmt(a,r); t.pr += a.retBoxes*r.pr; t.insp += inspAmt(a,r);
   });
-  const sum = t.set + t.pi + t.pr;
+  const sum = t.set + t.pi + t.pr + t.insp;
   const put = (sel,v)=>{ const el=$(sel); if(el) el.textContent = yen(v); };
   put('#work-table [data-tot="work"]', wTot);
   put('#comp-table [data-tot="set"]', t.set);
   put('#comp-table [data-tot="pi"]', t.pi);
   put('#comp-table [data-tot="pr"]', t.pr);
+  put('#comp-table [data-tot="insp"]', t.insp);
+  put('#insp-table [data-tot="insp3"]', t.insp);
   put('#comp-table [data-tot="sum"]', sum);
   const k=$("#kpi-bill .v"); if(k) k.textContent = yen(sum);
 }
@@ -1871,7 +2023,7 @@ function csvCompanies(){
   const ym=$("#m-month").value, site=$("#m-site").value;
   const recs = monthRecords(ym,site);
   const m={}; let seinoPallets=0, carrierBoxes=0;
-  const g=n=> m[n]||(m[n]={cases:0,picks:0,qty:0,cht:0,ovs:0,dom:0,pay:0,sets:0,setAmt:0,inPallets:0,inBoxes:0,inPieces:0,retBoxes:0,retPieces:0});
+  const g=n=> m[n]||(m[n]={cases:0,picks:0,qty:0,cht:0,ovs:0,dom:0,pay:0,sets:0,setAmt:0,inPallets:0,inBoxes:0,inPieces:0,retBoxes:0,retPieces:0,iic:0,iib:0,iip:0,irc:0,irb:0,irp:0});
   const wcells={};
   recs.forEach(r=>{
     carrierBoxes += recCarrierBoxes(r);
@@ -1887,8 +2039,10 @@ function csvCompanies(){
       wcells[kk].sets+=qy;
     });
     (r.in ||[]).forEach(x=>{ const c=g(x.company||"（未記入）");
-      inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces); }); });
-    (r.ret||[]).forEach(x=>{ const c=g(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces); });
+      inItems(x).forEach(it=>{ c.inPallets+=num(it.pallets); c.inBoxes+=num(it.boxes); c.inPieces+=num(it.pieces);
+        c.iic+=num(it.ik); c.iib+=num(it.ib); c.iip+=num(it.ip); }); });
+    (r.ret||[]).forEach(x=>{ const c=g(x.company||"（未記入）"); c.retBoxes+=num(x.boxes); c.retPieces+=num(x.pieces);
+      c.irc+=num(x.ik); c.irb+=num(x.ib); c.irp+=num(x.ip); });
     (r.dmg||[]).forEach(x=>{ const c=g(x.company||"（未記入）");
       c.dmgN=(c.dmgN||0)+1; c.dmgBox=(c.dmgBox||0)+num(x.boxes); c.dmgPc=(c.dmgPc||0)+num(x.pieces);
       if(String(x.where||"").indexOf("庫内")>=0) c.dmgWork=(c.dmgWork||0)+1; });
@@ -1896,15 +2050,20 @@ function csvCompanies(){
   Object.values(wcells).forEach(c=>{ m[c.company].setAmt += c.sets*rateWork(ym,c.company,c.work); });
 
   const head=["対象月","拠点","企業名","LOGILESS","出荷件数","ピック数","出荷個口(チャーター)","出荷個口(海外)","出荷個口(LOGILESS未導入)","出荷個口(計)","チャーター支払",
-    "セット数","セット組金額","入荷パレット数","入荷箱数","入荷ピース数","入荷単価","入荷金額","返品箱数","返品ピース数","返品単価","返品金額","付帯作業 請求額","破損件数","うち庫内破損","破損箱数","破損ピース数"];
+    "セット数","セット組金額","入荷パレット数","入荷箱数","入荷ピース数","入荷パレット単価","入荷箱単価","入荷ピース単価","入荷金額","返品箱数","返品ピース数","返品単価","返品金額",
+    "入荷検品ケース数","入荷検品ケース単価","入荷検品ボール数","入荷検品ボール単価","入荷検品ピース数","入荷検品ピース単価",
+    "返品検品ケース数","返品検品ケース単価","返品検品ボール数","返品検品ボール単価","返品検品ピース数","返品検品ピース単価","検品金額",
+    "付帯作業 請求額","破損件数","うち庫内破損","破損箱数","破損ピース数"];
   const lines=[head.map(q).join(",")];
   Object.keys(m).sort().forEach(n=>{
     const c=m[n], r=rateComp(ym,n);
-    const i=c.inBoxes*r.pi, p=c.retBoxes*r.pr;
-    lines.push([ym, site==="__all"?"全拠点":site, n, isLogiless(n)?"済":"未",
+    const i=inAmt(c,r), p=c.retBoxes*r.pr, k=inspAmt(c,r);
+    lines.push([ym, siteLabel(site), n, isLogiless(n)?"済":"未",
       c.cases,c.picks,c.cht,c.ovs,c.dom,c.qty,Math.round(c.pay),
-      c.sets,Math.round(c.setAmt), c.inPallets,c.inBoxes,c.inPieces,r.pi,Math.round(i),
-      c.retBoxes,c.retPieces,r.pr,Math.round(p), Math.round(c.setAmt+i+p),
+      c.sets,Math.round(c.setAmt), c.inPallets,c.inBoxes,c.inPieces,r.pp,r.pi,r.pc,Math.round(i),
+      c.retBoxes,c.retPieces,r.pr,Math.round(p),
+      c.iic,r.kic,c.iib,r.kib,c.iip,r.kip, c.irc,r.krc,c.irb,r.krb,c.irp,r.krp, Math.round(k),
+      Math.round(c.setAmt+i+p+k),
       c.dmgN||0, c.dmgWork||0, c.dmgBox||0, c.dmgPc||0].map(q).join(","));
   });
   lines.push("");
@@ -1918,6 +2077,8 @@ function csvCompanies(){
   download(`日計表_企業別_${ym}.csv`, lines.join("\r\n"));
 }
 
+function inspPriceText(c,b,p){ return [c?"ケース"+c:"",b?"ボール"+b:"",p?"ピース"+p:""].filter(Boolean).join("・"); }
+function inspQtyText(x){ return `検品数 ケース${num(x.ik)}・ボール${num(x.ib)}・ピース${num(x.ip)}`; }
 function csvRaw(){
   const ym=$("#m-month").value, site=$("#m-site").value;
   const recs = monthRecords(ym,site).sort((a,b)=> a.date<b.date?-1:1);
@@ -1931,10 +2092,15 @@ function csvRaw(){
       "","","","",x.detail,"","","",x.agent||"",x.pay||"","","","","",""]));
     (r.set ||[]).forEach(x=>{ const wn=x.work||x.product||"", p=rateWork(y2,x.company||"",wn);
       push([r.date,y2,w,r.site,r.writer,"セット組",wn,x.company,"",x.picks,"",x.sets,"","","",wn,"","","","",p,num(x.sets)*p,x.note]); });
-    (r.in  ||[]).forEach(x=>{ const p=rt(x.company).pi;
+    (r.in  ||[]).forEach(x=>{ const rr=rt(x.company), p=[rr.pp?"パレット"+rr.pp:"",rr.pi?"箱"+rr.pi:"",rr.pc?"ピース"+rr.pc:""].filter(Boolean).join("・");
       inItems(x).forEach(it=> push([r.date,y2,w,r.site,r.writer,"入荷・入庫","",x.company,"","","","",
-        it.pallets,it.boxes,it.pieces,it.product,it.exp||"",it.lot||"","","","","","",p,num(it.boxes)*p,x.note||""])); });
-    (r.ret ||[]).forEach(x=>{ const p=rt(x.company).pr;
+        it.pallets,it.boxes,it.pieces,it.product,it.exp||"",it.lot||"","","","","","",p,itemAmt(it,rr),x.note||""]));
+      inItems(x).forEach(it=>{ if(!(num(it.ik)||num(it.ib)||num(it.ip))) return;
+        push([r.date,y2,w,r.site,r.writer,"検品","入荷検品",x.company,"","","","","",it.ik||0,it.ip||0,it.product,"","","","","","","",
+          inspPriceText(rr.kic,rr.kib,rr.kip), num(it.ik)*rr.kic+num(it.ib)*rr.kib+num(it.ip)*rr.kip, inspQtyText(it)]); }); });
+    (r.ret ||[]).forEach(x=>{ const p=rt(x.company).pr, rr=rt(x.company);
+      if(num(x.ik)||num(x.ib)||num(x.ip)) push([r.date,y2,w,r.site,r.writer,"検品","返品検品",x.company,"","","","","",x.ik||0,x.ip||0,x.product,"","","","","","","",
+        inspPriceText(rr.krc,rr.krb,rr.krp), num(x.ik)*rr.krc+num(x.ib)*rr.krb+num(x.ip)*rr.krp, inspQtyText(x)]);
       push([r.date,y2,w,r.site,r.writer,"返品","",x.company,"","","","","",x.boxes,x.pieces,x.product,"","","","","",x.payer,x.cod?("着払い "+(x.codNote||"")):"",p,num(x.boxes)*p,""]); });
     (r.dmg ||[]).forEach(x=> push([r.date,y2,w,r.site,r.writer,"破損",DMG_SHORT[x.where]||x.where||"",x.company,
       "","","","","",x.boxes,x.pieces,x.product,"","",x.where||"","","","","","",x.note||""]));
@@ -2139,7 +2305,13 @@ function renderSiteSelects(){
   const curM = $("#m-site").value;
   $("#m-site").innerHTML = `<option value="__all">全拠点</option>` + cfg.sites.map(s=>`<option>${esc(s)}</option>`).join("");
   if(curM) $("#m-site").value = curM;
+  /* 拠点が1つだけのときは選ぶ欄を出さない */
+  const one = cfg.sites.length <= 1;
+  $("#f-site").closest(".field").style.display = one ? "none" : "";
+  $("#m-site").closest(".field").style.display = one ? "none" : "";
+  if(one){ $("#f-site").value = cfg.sites[0]; $("#m-site").value = "__all"; }
 }
+function siteLabel(site){ return site==="__all" ? (cfg.sites.length<=1 ? cfg.sites[0] : "全拠点") : site; }
 
 function switchView(v){
   $$(".tab").forEach(t=> t.setAttribute("aria-selected", String(t.dataset.view===v)));
@@ -2185,13 +2357,13 @@ $("#fs-off").addEventListener("click", async ()=>{
 
 $("#x-export").addEventListener("click", ()=>{
   const ym = $("#x-month").value || monthStr();
-  const list = Object.values(records).filter(r=> r.date && r.date.slice(0,7)===ym);
+  const list = Object.values(records).filter(r=> r.date && r.date.slice(0,7)===ym && cfg.sites.indexOf(r.site)>=0);
   if(!list.length){ toast("この月のデータがありません", true); return; }
   const payload = {records:list, rates:{}};
   payload.rates[ym] = rates[ym] || {};
   const blob = new Blob([JSON.stringify(payload,null,1)], {type:"application/json"});
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-  a.download = `日計表データ_${ym}_${$("#f-site").value}.json`; a.click();
+  a.download = `日計表データ_${ym}_${siteLabel("__all")}.json`; a.click();
   toast(list.length+"日分を書き出しました");
 });
 $("#x-import").addEventListener("click", ()=> $("#x-file").click());
@@ -2231,9 +2403,9 @@ $("#b-file").addEventListener("change", e=>{
   const rd=new FileReader();
   rd.onload=()=>{ try{
       const j=JSON.parse(rd.result);
-      if(j.cfg){ cfg=j.cfg; saveCfg(); }
+      if(j.cfg){ cfg=j.cfg; applyRetired(); saveCfg(); }
       if(j.records){ records=Object.assign(records,j.records); saveRec(); }
-      if(j.rates){ rates=Object.assign(rates,j.rates); saveRate(); }
+      if(j.rates){ rates=Object.assign(rates,j.rates); saveRate(); touchAllRates(); }
       boot(); toast("読み込みました");
     }catch(err){ toast("ファイルを読めませんでした", true); } };
   rd.readAsText(f);
@@ -2292,6 +2464,7 @@ function boot(){
       if(ok){
         const gotCfg = await pullSettings();
         if(gotCfg){ renderOffDays(); renderSites(); renderComps(); renderWorks(); renderProducts(); renderSiteSelects(); }
+        await pushRates();
         const sent = await flushDirty();
         const n = await syncFromFolder(monthStr());
         loadDay(); renderPermBar();
